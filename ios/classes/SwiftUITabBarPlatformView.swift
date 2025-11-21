@@ -1,0 +1,302 @@
+import Flutter
+import SwiftUI
+import UIKit
+
+// MARK: - Models
+
+@available(iOS 14.0, *)
+struct Article: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+}
+
+@available(iOS 14.0, *)
+struct NativeTabItemData: Identifiable {
+    let id: Int
+    let title: String
+    let symbol: String
+    let articles: [Article]
+}
+
+// MARK: - iOS 18+ Tab API Scaffold
+
+@available(iOS 18.0, *)
+struct SwiftUITabBarScaffold: View {
+    let items: [NativeTabItemData]
+    let includeActionTab: Bool
+    let actionSymbol: String
+    let onActionTap: () -> Void
+    @State private var selection: Int = 0
+    @State private var lastNonActionSelection: Int = 0
+
+    var body: some View {
+        Group {
+            TabView(selection: $selection) {
+                ForEach(items) { item in
+                    Tab(value: item.id) {
+                        navigationContainer {
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: 12) {
+                                    ForEach(item.articles) { article in
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(article.title).font(.headline)
+                                            Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 16)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                            }
+                            .navigationTitle(item.title)
+                        }
+                    } label: {
+                        Label(item.title, systemImage: item.symbol)
+                    }
+                }
+
+                if includeActionTab {
+                    let symbol = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
+                    Tab("", systemImage: symbol, value: -1, role: .search) {
+                        Color.clear
+                    }
+                }
+            }
+            .onAppear {
+                let first = items.first?.id ?? 0
+                selection = first
+                lastNonActionSelection = first
+            }
+            .onChange(of: selection) { newValue in
+                if includeActionTab && newValue == -1 {
+                    onActionTap()
+                    selection = lastNonActionSelection
+                }
+                if newValue != -1 {
+                    lastNonActionSelection = newValue
+                }
+            }
+        }
+        .modifier(MinimizeBehaviorModifier())
+    }
+
+    @ViewBuilder
+    private func navigationContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if #available(iOS 16.0, *) {
+            NavigationStack { content() }
+        } else {
+            NavigationView { content() }
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct MinimizeBehaviorModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - iOS 14-17 Fallback
+
+@available(iOS 14.0, *)
+struct SwiftUITabBarFallback: View {
+    let items: [NativeTabItemData]
+
+    var body: some View {
+        TabView {
+            ForEach(items) { item in
+                navigationContainer {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            ForEach(item.articles) { article in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(article.title).font(.headline)
+                                    Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .navigationTitle(item.title)
+                }
+                .tabItem {
+                    Label(item.title, systemImage: item.symbol)
+                }
+                .tag(item.id)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func navigationContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if #available(iOS 16.0, *) {
+            NavigationStack { content() }
+        } else {
+            NavigationView { content() }
+        }
+    }
+}
+
+// MARK: - Platform View
+
+@available(iOS 14.0, *)
+class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
+    private let container: UIView
+    private let messenger: FlutterBinaryMessenger
+    private var eventChannel: FlutterMethodChannel?
+    private weak var hostingController: UIHostingController<AnyView>?
+
+    init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
+        self.container = UIView(frame: frame)
+        self.messenger = messenger
+        super.init()
+
+        let items = SwiftUITabBarPlatformView.parseItems(args: args)
+        let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
+        let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
+
+        let channel = FlutterMethodChannel(
+            name: "liquid_tabbar_minimize/swiftui_presenter",
+            binaryMessenger: messenger
+        )
+        self.eventChannel = channel
+
+        let rootView: AnyView
+        if #available(iOS 18.0, *) {
+            rootView = AnyView(
+                SwiftUITabBarScaffold(
+                    items: items,
+                    includeActionTab: includeAction,
+                    actionSymbol: actionSymbol,
+                    onActionTap: { [weak self] in
+                        self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
+                    }
+                )
+            )
+        } else {
+            rootView = AnyView(SwiftUITabBarFallback(items: items))
+        }
+
+        let host = UIHostingController(rootView: rootView)
+        host.view.backgroundColor = .clear
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        hostingController = host
+
+        if let parentVC = UIApplication.shared.delegate?.window??.rootViewController {
+            parentVC.addChild(host)
+        }
+
+        container.addSubview(host.view)
+        NSLayoutConstraint.activate([
+            host.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            host.view.topAnchor.constraint(equalTo: container.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        if let parentVC = UIApplication.shared.delegate?.window??.rootViewController {
+            host.didMove(toParent: parentVC)
+        }
+    }
+
+    func view() -> UIView {
+        container
+    }
+
+    // MARK: - Helpers
+
+    static func parseItems(args: Any?) -> [NativeTabItemData] {
+        guard let dict = args as? [String: Any],
+              let labels = dict["labels"] as? [String],
+              let symbols = dict["sfSymbols"] as? [String] else {
+            return SwiftUITabBarPlatformView.defaultItems()
+        }
+
+        let count = min(labels.count, symbols.count)
+        if count == 0 {
+            return SwiftUITabBarPlatformView.defaultItems()
+        }
+
+        var items: [NativeTabItemData] = []
+        for i in 0..<count {
+            let articles = SwiftUITabBarPlatformView.sampleArticles(prefix: labels[i])
+            let item = NativeTabItemData(id: i, title: labels[i], symbol: symbols[i], articles: articles)
+            items.append(item)
+        }
+        return items
+    }
+
+    static func parseActionFlag(args: Any?) -> Bool {
+        guard let dict = args as? [String: Any],
+              let flag = dict["enableActionTab"] as? Bool else {
+            return false
+        }
+        return flag
+    }
+
+    static func parseActionSymbol(args: Any?) -> String {
+        guard let dict = args as? [String: Any],
+              let symbol = dict["actionSymbol"] as? String else {
+            return "magnifyingglass"
+        }
+        return symbol
+    }
+
+    static func defaultItems() -> [NativeTabItemData] {
+        return [
+            NativeTabItemData(
+                id: 0,
+                title: "Home",
+                symbol: "house.fill",
+                articles: sampleArticles(prefix: "Appointment")
+            ),
+            NativeTabItemData(
+                id: 1,
+                title: "Explore",
+                symbol: "globe",
+                articles: sampleArticles(prefix: "Guide")
+            ),
+            NativeTabItemData(
+                id: 2,
+                title: "Settings",
+                symbol: "gearshape.fill",
+                articles: sampleArticles(prefix: "Setting")
+            ),
+        ]
+    }
+
+    static func sampleArticles(prefix: String) -> [Article] {
+        return (1...50).map { idx in
+            Article(
+                title: "\(prefix) \(idx)",
+                subtitle: "Subtitle \(idx)"
+            )
+        }
+    }
+}
+
+@available(iOS 14.0, *)
+class SwiftUITabBarViewFactory: NSObject, FlutterPlatformViewFactory {
+    private let messenger: FlutterBinaryMessenger
+
+    init(messenger: FlutterBinaryMessenger) {
+        self.messenger = messenger
+        super.init()
+    }
+
+    func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
+        return SwiftUITabBarPlatformView(frame: frame, viewId: viewId, args: args, messenger: messenger)
+    }
+
+    func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+        return FlutterStandardMessageCodec.sharedInstance()
+    }
+}

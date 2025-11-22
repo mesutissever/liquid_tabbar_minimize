@@ -2,6 +2,17 @@ import Flutter
 import SwiftUI
 import UIKit
 
+// NOTE:
+// iOS 18.6 çalışmaması iki sebepli:
+// 1) Xcode'da iOS 18.6 runtime yüklü değil (Platform Runtimes bölümünden indirin, sonra yeni iPhone 16 iOS 18.6 simulator ekleyin).
+// 2) presentSwiftUITabBar içinde (SwiftLiquidTabbarMinimizePlugin.swift) guard #available(iOS 26.0, *) kullanıldığı için iOS 18.x bloklanıyor.
+//    O guard'ı şöyle değiştirin:
+//    guard #available(iOS 18.0, *) else {
+//        result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
+//        return
+//    }
+//    iOS 26 dışı sürümlerde minimize yok ama TabView normal çalışır.
+
 // MARK: - Models
 
 @available(iOS 14.0, *)
@@ -26,6 +37,7 @@ struct SwiftUITabBarScaffold: View {
     let items: [NativeTabItemData]
     let includeActionTab: Bool
     let actionSymbol: String
+    let selectedColor: Color
     let onActionTap: () -> Void
     let onTabChanged: (Int) -> Void
     @State private var selection: Int = 0
@@ -86,6 +98,7 @@ struct SwiftUITabBarScaffold: View {
                     onTabChanged(newValue)
                 }
             }
+            .tint(selectedColor) // Seçili tab rengi
         }
         .modifier(MinimizeBehaviorModifier())
     }
@@ -171,6 +184,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let items = SwiftUITabBarPlatformView.parseItems(args: args)
         let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
+        let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
 
         let channel = FlutterMethodChannel(
             name: "liquid_tabbar_minimize/events",
@@ -185,6 +199,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     items: items,
                     includeActionTab: includeAction,
                     actionSymbol: actionSymbol,
+                    selectedColor: selectedColor,
                     onActionTap: { [weak channel] in
                         channel?.invokeMethod("onActionTapped", arguments: nil)
                     },
@@ -278,6 +293,24 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
             return "magnifyingglass"
         }
         return symbol
+    }
+
+    static func parseSelectedColor(args: Any?) -> Color {
+        guard let dict = args as? [String: Any],
+              let hexString = dict["selectedColorHex"] as? String else {
+            return Color.blue
+        }
+        
+        let hex = hexString.replacingOccurrences(of: "#", with: "")
+        var rgbValue: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&rgbValue)
+        
+        let a = Double((rgbValue & 0xFF000000) >> 24) / 255.0
+        let r = Double((rgbValue & 0x00FF0000) >> 16) / 255.0
+        let g = Double((rgbValue & 0x0000FF00) >> 8) / 255.0
+        let b = Double(rgbValue & 0x000000FF) / 255.0
+        
+        return Color(red: r, green: g, blue: b, opacity: a)
     }
 
     static func defaultItems() -> [NativeTabItemData] {

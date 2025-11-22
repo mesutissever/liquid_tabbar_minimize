@@ -21,8 +21,8 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
-  liquid_tabbar_minimize: ea14d09c2e08385dc75258f53fc23f1a8b368d95
+  liquid_tabbar_minimize: f77268d1bba4503c8fccce45bb2c90638b6ed1b8
 
-PODFILE CHECKSUM: 7c07a7c8c494e8adfd9d49eadb089251ff120b5b
+PODFILE CHECKSUM: 3ba3a73b1b12adcf321a227a745625fe0888cc82
 
 COCOAPODS: 1.16.2

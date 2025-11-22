@@ -1,18 +1,18 @@
 import 'package:flutter/widgets.dart';
 
-/// Bir tab bar item'ını temsil eder.
+/// Represents a tab bar item.
 class LiquidTabItem {
-  /// iOS SF Symbol adı (örn: 'house.fill', 'globe', 'star')
+  /// iOS SF Symbol name (e.g. 'house.fill', 'globe', 'star')
   final String icon;
 
-  /// Tab'in etiketi
+  /// Tab label
   final String label;
 
-  /// Tab'in içeriği (sayfa)
+  /// Tab content (page widget)
   final Widget child;
 
-  /// iOS native view için custom data (opsiyonel)
-  /// Her item { 'title': String, 'subtitle': String } formatında olmalı
+  /// Custom data for iOS native view (optional)
+  /// Each item should be in format { 'title': String, 'subtitle': String }
   final List<Map<String, String>>? nativeData;
 
   const LiquidTabItem({

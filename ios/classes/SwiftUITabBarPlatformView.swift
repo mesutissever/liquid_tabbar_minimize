@@ -2,17 +2,6 @@ import Flutter
 import SwiftUI
 import UIKit
 
-// NOTE:
-// iOS 18.6 çalışmaması iki sebepli:
-// 1) Xcode'da iOS 18.6 runtime yüklü değil (Platform Runtimes bölümünden indirin, sonra yeni iPhone 16 iOS 18.6 simulator ekleyin).
-// 2) presentSwiftUITabBar içinde (SwiftLiquidTabbarMinimizePlugin.swift) guard #available(iOS 26.0, *) kullanıldığı için iOS 18.x bloklanıyor.
-//    O guard'ı şöyle değiştirin:
-//    guard #available(iOS 18.0, *) else {
-//        result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
-//        return
-//    }
-//    iOS 26 dışı sürümlerde minimize yok ama TabView normal çalışır.
-
 // MARK: - Models
 
 @available(iOS 14.0, *)
@@ -41,7 +30,7 @@ struct SwiftUITabBarScaffold: View {
     let labelVisibility: String // "selectedOnly", "always", "never"
     let onActionTap: () -> Void
     let onTabChanged: (Int) -> Void
-    let minimizeThreshold: Double // Son sırada
+    let minimizeThreshold: Double
     @State private var selection: Int = 0
     @State private var lastNonActionSelection: Int = 0
 
@@ -74,12 +63,12 @@ struct SwiftUITabBarScaffold: View {
                                     }
                                     .coordinateSpace(name: "scrollView")
                                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                                        // Threshold kontrolü
+                                        // Threshold check
                                         let contentHeight = Double(item.articles.count) * 50.0
                                         let scrollPercentage = abs(offset) / contentHeight
                                         
                                         if scrollPercentage > minimizeThreshold {
-                                            // Minimize edilmeli
+                                            // Should minimize
                                         }
                                     }
                                 }
@@ -119,16 +108,15 @@ struct SwiftUITabBarScaffold: View {
             }
             .onChange(of: selection) { newValue in
                 if includeActionTab && newValue == -1 {
-                    // Search tab seçildi - callback çağır ama selection'ı değiştirme
+                    // Search tab selected
                     onActionTap()
-                    // Search tab seçili kalsın
                 } else if newValue != -1 {
-                    // Normal tab seçildi
+                    // Normal tab selected
                     lastNonActionSelection = newValue
                     onTabChanged(newValue)
                 }
             }
-            .tint(selectedColor) // Seçili tab rengi
+            .tint(selectedColor)
         }
         .modifier(MinimizeBehaviorModifier())
     }
@@ -257,7 +245,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     onTabChanged: { [weak channel] index in
                         channel?.invokeMethod("onTabChanged", arguments: index)
                     },
-                    minimizeThreshold: minimizeThreshold // Son parametre
+                    minimizeThreshold: minimizeThreshold
                 )
             )
         } else {
@@ -310,7 +298,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         for i in 0..<count {
             let articles: [Article]
             
-            // Flutter'dan gelen data varsa onu kullan
+            // Use data from Flutter if available
             if i < nativeDataArray.count && !nativeDataArray[i].isEmpty {
                 articles = nativeDataArray[i].compactMap { item in
                     guard let itemDict = item as? [String: Any],
@@ -376,7 +364,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
     static func parseMinimizeThreshold(args: Any?) -> Double {
         guard let dict = args as? [String: Any],
               let threshold = dict["minimizeThreshold"] as? Double else {
-            return 0.1 // Default %10
+            return 0.1 // Default 10%
         }
         return threshold
     }

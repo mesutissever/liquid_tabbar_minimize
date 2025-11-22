@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'liquid_tab_item.dart';
 
-/// Label görünürlük modu
+/// Label visibility mode
 enum LabelVisibility { selectedOnly, always, never }
 
 /// iOS native tab bar with scroll-to-minimize behavior.
@@ -229,7 +229,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
 
     if (delta.abs() < 3.0) return;
 
-    // Threshold kontrolü
+    // Threshold check
     if (offset > threshold && delta > 0 && !_isCollapsed) {
       setState(() {
         _isCollapsed = true;

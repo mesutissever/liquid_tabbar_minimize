@@ -28,22 +28,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
 
-  // Native data builder
-  // List<Map<String, String>> _buildNativeData(int tabIndex, String label) {
-  //   // Her tab için farklı item count
-  //   final counts = [10, 50, 50, 50]; // Home: 10, diğerleri: 50
-  //   final count = counts[tabIndex];
-
-  //   return List.generate(
-  //     count,
-  //     (i) => {
-  //       'title': '$label Item ${i + 1}',
-  //       'subtitle': 'Scroll to see effect',
-  //     },
-  //   );
-  // }
-
-  // iOS 26+ için SF Symbol mapping
+  // iOS 26+ SF Symbol mapping
   String _iconToSFSymbol(IconData icon) {
     if (icon == Icons.home) return 'house.fill';
     if (icon == Icons.public) return 'globe';
@@ -138,7 +123,7 @@ class _HomePageState extends State<HomePage> {
           _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
           _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
         ],
-        itemCounts: const [12, 50, 50, 50], // iOS 26 native için
+        itemCounts: const [12, 50, 50, 50], // Item counts for iOS 26+ native
         sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
         actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
@@ -150,9 +135,9 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.grey,
         labelVisibility: LabelVisibility.always,
         height: 68,
-        minimizeThreshold: 0.1, // 100px scroll sonrası minimize
+        minimizeThreshold: 0.1, // Minimize after 100px scroll
         forceCustomBar:
-            false, // iOS 26'da da custom bar kullan (threshold kontrolü için)
+            false, // Use custom bar even on iOS 26+ (for threshold control)
       ),
     );
   }

@@ -54,11 +54,14 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
     let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
     let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
     let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
+    let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
+    
     let rootView = SwiftUITabBarScaffold(
       items: items,
       includeActionTab: includeAction,
       actionSymbol: actionSymbol,
       selectedColor: selectedColor,
+      labelVisibility: labelVisibility,
       onActionTap: { [weak self] in
         self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
       },

@@ -131,6 +131,7 @@ class _HomePageState extends State<HomePage> {
         },
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
+        labelVisibility: LabelVisibility.always, // Sadece seçili olanın label'ı
         height: 68,
       ),
     );

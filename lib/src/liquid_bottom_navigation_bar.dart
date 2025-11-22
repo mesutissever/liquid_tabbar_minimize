@@ -12,7 +12,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final List<BottomNavigationBarItem> items;
   final List<Widget> pages;
   final bool showActionButton;
-  final (Icon, String)? actionIcon; // (Custom Icon, Native SF Symbol)
+  final (Icon, String)? actionIcon; // (Icon(Icons.search), 'magnifyingglass')
   final VoidCallback? onActionTap;
   final double height;
   final String Function(IconData)? sfSymbolMapper;
@@ -20,6 +20,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final Color? selectedItemColor; // Seçili tab rengi
   final Color? unselectedItemColor; // Seçili olmayan tab rengi
   final ValueChanged<double>? onScroll; // Scroll callback
+  final LabelVisibility labelVisibility; // Yeni parametre
 
   const LiquidBottomNavigationBar({
     super.key,
@@ -36,6 +37,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.selectedItemColor, // null ise theme.colorScheme.primary
     this.unselectedItemColor, // null ise grey
     this.onScroll,
+    this.labelVisibility = LabelVisibility.always, // Default: her zaman göster
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(items.length == pages.length);
 
@@ -116,6 +118,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
           'nativeData': liquidItems.map((e) => e.nativeData ?? []).toList(),
           'selectedColorHex':
               '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
+          'labelVisibility': widget.labelVisibility.name, // Enum name'i gönder
         },
         creationParamsCodec: const StandardMessageCodec(),
       );
@@ -133,6 +136,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       height: widget.height,
       selectedItemColor: widget.selectedItemColor,
       unselectedItemColor: widget.unselectedItemColor,
+      labelVisibility: widget.labelVisibility, // Parametre ilet
     );
   }
 }
@@ -147,6 +151,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final double height;
   final Color? selectedItemColor;
   final Color? unselectedItemColor;
+  final LabelVisibility labelVisibility;
 
   const _CustomLiquidBar({
     super.key,
@@ -159,6 +164,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.height,
     this.selectedItemColor,
     this.unselectedItemColor,
+    required this.labelVisibility,
   });
 
   @override
@@ -199,6 +205,17 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     }
   }
 
+  bool _shouldShowLabel(bool isSelected) {
+    switch (widget.labelVisibility) {
+      case LabelVisibility.selectedOnly:
+        return isSelected;
+      case LabelVisibility.always:
+        return true;
+      case LabelVisibility.never:
+        return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -214,10 +231,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     final isActionSelected =
         widget.showActionButton && widget.currentIndex >= widget.items.length;
 
-    return Container(
+    return SizedBox(
       height: widget.height + safeAreaBottom,
       child: Padding(
-        padding: EdgeInsets.only(left: 16, right: 16, bottom: safeAreaBottom),
+        padding: EdgeInsets.only(left: 14, right: 14, bottom: safeAreaBottom),
         child: Stack(
           alignment: Alignment.bottomRight,
           children: [
@@ -225,7 +242,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
             Align(
               alignment: Alignment.bottomLeft,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 width: _isCollapsed
                     ? widget
@@ -331,7 +348,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                             ),
                                             child: item.icon,
                                           ),
-                                          if (item.label != null) ...[
+                                          if (item.label != null &&
+                                              _shouldShowLabel(isSelected)) ...[
                                             const SizedBox(height: 3),
                                             Flexible(
                                               child: Text(
@@ -454,4 +472,16 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
       ),
     );
   }
+}
+
+/// Label görünürlük modu
+enum LabelVisibility {
+  /// Sadece seçili tab'ın label'ı gösterilir
+  selectedOnly,
+
+  /// Tüm tab'ların label'ları gösterilir
+  always,
+
+  /// Hiçbir tab'ın label'ı gösterilmez
+  never,
 }

@@ -2,6 +2,17 @@ import Flutter
 import SwiftUI
 import UIKit
 
+// NOTE:
+// iOS 18.6 çalışmaması iki sebepli:
+// 1) Xcode'da iOS 18.6 runtime yüklü değil (Platform Runtimes bölümünden indirin, sonra yeni iPhone 16 iOS 18.6 simulator ekleyin).
+// 2) presentSwiftUITabBar içinde (SwiftLiquidTabbarMinimizePlugin.swift) guard #available(iOS 26.0, *) kullanıldığı için iOS 18.x bloklanıyor.
+//    O guard'ı şöyle değiştirin:
+//    guard #available(iOS 18.0, *) else {
+//        result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
+//        return
+//    }
+//    iOS 26 dışı sürümlerde minimize yok ama TabView normal çalışır.
+
 // MARK: - Models
 
 @available(iOS 14.0, *)

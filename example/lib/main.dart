@@ -75,8 +75,11 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ],
+      // Yeni parametreler
       showActionTab: true,
       actionIcon: 'magnifyingglass',
+      bottomPadding: 0, // Home indicator'dan yukarıda
+      tabBarHeight: 68,
       onActionTap: () {
         debugPrint('Search tapped!');
       },

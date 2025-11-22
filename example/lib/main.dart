@@ -28,6 +28,21 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
 
+  // Native data builder
+  // List<Map<String, String>> _buildNativeData(int tabIndex, String label) {
+  //   // Her tab için farklı item count
+  //   final counts = [10, 50, 50, 50]; // Home: 10, diğerleri: 50
+  //   final count = counts[tabIndex];
+
+  //   return List.generate(
+  //     count,
+  //     (i) => {
+  //       'title': '$label Item ${i + 1}',
+  //       'subtitle': 'Scroll to see effect',
+  //     },
+  //   );
+  // }
+
   // iOS 26+ için SF Symbol mapping
   String _iconToSFSymbol(IconData icon) {
     if (icon == Icons.home) return 'house.fill';
@@ -41,6 +56,7 @@ class _HomePageState extends State<HomePage> {
   static Widget _buildPageWithScroll(
     String title,
     Color color,
+    int count,
     Function(double, double) onScroll,
   ) {
     return Scaffold(
@@ -53,7 +69,7 @@ class _HomePageState extends State<HomePage> {
           return false;
         },
         child: ListView.builder(
-          itemCount: 50,
+          itemCount: count,
           itemBuilder: (context, index) {
             return ListTile(
               leading: CircleAvatar(
@@ -82,10 +98,10 @@ class _HomePageState extends State<HomePage> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildPageWithScroll('Home', Colors.blue, _handleScroll),
-          _buildPageWithScroll('Explore', Colors.green, _handleScroll),
-          _buildPageWithScroll('Favorites', Colors.orange, _handleScroll),
-          _buildPageWithScroll('Settings', Colors.purple, _handleScroll),
+          _buildPageWithScroll('Home', Colors.blue, 12, _handleScroll),
+          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
+          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
+          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -117,11 +133,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         pages: [
-          _buildPageWithScroll('Home', Colors.blue, _handleScroll),
-          _buildPageWithScroll('Explore', Colors.green, _handleScroll),
-          _buildPageWithScroll('Favorites', Colors.orange, _handleScroll),
-          _buildPageWithScroll('Settings', Colors.purple, _handleScroll),
+          _buildPageWithScroll('Home', Colors.blue, 10, _handleScroll),
+          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
+          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
+          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
         ],
+        itemCounts: const [12, 50, 50, 50], // iOS 26 native için
         sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
         actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
@@ -131,8 +148,11 @@ class _HomePageState extends State<HomePage> {
         },
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
-        labelVisibility: LabelVisibility.always, // Sadece seçili olanın label'ı
+        labelVisibility: LabelVisibility.always,
         height: 68,
+        minimizeThreshold: 0.1, // 100px scroll sonrası minimize
+        forceCustomBar:
+            false, // iOS 26'da da custom bar kullan (threshold kontrolü için)
       ),
     );
   }

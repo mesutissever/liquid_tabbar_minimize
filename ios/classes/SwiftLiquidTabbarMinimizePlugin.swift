@@ -55,6 +55,7 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
     let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
     let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
     let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
+    let minimizeThreshold = SwiftUITabBarPlatformView.parseMinimizeThreshold(args: args)
     
     let rootView = SwiftUITabBarScaffold(
       items: items,
@@ -67,7 +68,8 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
       },
       onTabChanged: { [weak self] index in
         self?.eventChannel?.invokeMethod("onTabChanged", arguments: index)
-      }
+      },
+      minimizeThreshold: minimizeThreshold // Son parametre
     )
     let hostVC = UIHostingController(rootView: rootView)
     hostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen

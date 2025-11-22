@@ -41,6 +41,7 @@ struct SwiftUITabBarScaffold: View {
     let labelVisibility: String // "selectedOnly", "always", "never"
     let onActionTap: () -> Void
     let onTabChanged: (Int) -> Void
+    let minimizeThreshold: Double // Son sırada
     @State private var selection: Int = 0
     @State private var lastNonActionSelection: Int = 0
 
@@ -50,16 +51,36 @@ struct SwiftUITabBarScaffold: View {
                 ForEach(items) { item in
                     Tab(value: item.id) {
                         navigationContainer {
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 12) {
-                                    ForEach(item.articles) { article in
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            Text(article.title).font(.headline)
-                                            Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                            GeometryReader { geometry in
+                                ScrollViewReader { scrollProxy in
+                                    ScrollView {
+                                        LazyVStack(alignment: .leading, spacing: 12) {
+                                            ForEach(item.articles) { article in
+                                                VStack(alignment: .leading, spacing: 6) {
+                                                    Text(article.title).font(.headline)
+                                                    Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                                                }
+                                                .padding(.vertical, 8)
+                                                .padding(.horizontal, 16)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            }
                                         }
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 16)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(GeometryReader { contentGeometry in
+                                            Color.clear.preference(
+                                                key: ScrollOffsetPreferenceKey.self,
+                                                value: contentGeometry.frame(in: .named("scrollView")).minY
+                                            )
+                                        })
+                                    }
+                                    .coordinateSpace(name: "scrollView")
+                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                                        // Threshold kontrolü
+                                        let contentHeight = Double(item.articles.count) * 50.0
+                                        let scrollPercentage = abs(offset) / contentHeight
+                                        
+                                        if scrollPercentage > minimizeThreshold {
+                                            // Minimize edilmeli
+                                        }
                                     }
                                 }
                             }
@@ -144,6 +165,13 @@ private struct MinimizeBehaviorModifier: ViewModifier {
     }
 }
 
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - iOS 14-17 Fallback
 
 @available(iOS 14.0, *)
@@ -206,6 +234,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
         let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
         let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
+        let minimizeThreshold = SwiftUITabBarPlatformView.parseMinimizeThreshold(args: args)
 
         let channel = FlutterMethodChannel(
             name: "liquid_tabbar_minimize/events",
@@ -227,7 +256,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     },
                     onTabChanged: { [weak channel] index in
                         channel?.invokeMethod("onTabChanged", arguments: index)
-                    }
+                    },
+                    minimizeThreshold: minimizeThreshold // Son parametre
                 )
             )
         } else {
@@ -341,6 +371,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
             return "always"
         }
         return visibility
+    }
+
+    static func parseMinimizeThreshold(args: Any?) -> Double {
+        guard let dict = args as? [String: Any],
+              let threshold = dict["minimizeThreshold"] as? Double else {
+            return 0.1 // Default %10
+        }
+        return threshold
     }
 
     static func defaultItems() -> [NativeTabItemData] {

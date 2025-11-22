@@ -67,7 +67,6 @@ class _HomePageState extends State<HomePage> {
           _buildPage('Explore', Colors.green),
           _buildPage('Favorites', Colors.orange),
           _buildPage('Settings', Colors.purple),
-          // Action button için 5. sayfa
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -109,10 +108,11 @@ class _HomePageState extends State<HomePage> {
         actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
         onActionTap: () {
           debugPrint('Search tapped!');
-          setState(() => _selectedIndex = 4); // 5. sayfaya git
+          setState(() => _selectedIndex = 4);
         },
+        selectedItemColor: Colors.blue, // Özel renk
+        unselectedItemColor: Colors.grey, // Özel renk
         height: 68,
-        bottomPadding: 8,
       ),
     );
   }

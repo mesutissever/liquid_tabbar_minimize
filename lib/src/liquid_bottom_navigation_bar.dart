@@ -15,9 +15,10 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final (Icon, String)? actionIcon; // (Custom Icon, Native SF Symbol)
   final VoidCallback? onActionTap;
   final double height;
-  final double bottomPadding;
   final String Function(IconData)? sfSymbolMapper;
   final ValueChanged<bool>? onNativeDetected;
+  final Color? selectedItemColor; // Seçili tab rengi
+  final Color? unselectedItemColor; // Seçili olmayan tab rengi
 
   const LiquidBottomNavigationBar({
     super.key,
@@ -29,9 +30,10 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.actionIcon, // (Icon(Icons.search), 'magnifyingglass')
     this.onActionTap,
     this.height = 68,
-    this.bottomPadding = 8,
     this.sfSymbolMapper,
     this.onNativeDetected,
+    this.selectedItemColor, // null ise theme.colorScheme.primary
+    this.unselectedItemColor, // null ise grey
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(items.length == pages.length);
 
@@ -81,6 +83,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
 
     // iOS 26+ Native
     if (_useNative && Platform.isIOS) {
+      final theme = Theme.of(context);
       final liquidItems = List.generate(widget.items.length, (i) {
         final item = widget.items[i];
         final iconData = (item.icon as Icon).icon!;
@@ -94,6 +97,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       });
 
       final actionSFSymbol = widget.actionIcon?.$2 ?? 'magnifyingglass';
+      final selectedColor =
+          widget.selectedItemColor ?? theme.colorScheme.primary;
 
       return UiKitView(
         viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
@@ -104,6 +109,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
           'enableActionTab': widget.showActionButton,
           'actionSymbol': actionSFSymbol,
           'nativeData': liquidItems.map((e) => e.nativeData ?? []).toList(),
+          'selectedColorHex':
+              '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
         },
         creationParamsCodec: const StandardMessageCodec(),
       );
@@ -118,7 +125,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       actionIcon: widget.actionIcon?.$1, // Tuple'dan Icon çıkar
       onActionTap: widget.onActionTap,
       height: widget.height,
-      bottomPadding: widget.bottomPadding,
+      selectedItemColor: widget.selectedItemColor,
+      unselectedItemColor: widget.unselectedItemColor,
     );
   }
 }
@@ -131,7 +139,8 @@ class _CustomLiquidBar extends StatefulWidget {
   final Icon? actionIcon;
   final VoidCallback? onActionTap;
   final double height;
-  final double bottomPadding;
+  final Color? selectedItemColor;
+  final Color? unselectedItemColor;
 
   const _CustomLiquidBar({
     required this.currentIndex,
@@ -141,7 +150,8 @@ class _CustomLiquidBar extends StatefulWidget {
     this.actionIcon,
     this.onActionTap,
     required this.height,
-    required this.bottomPadding,
+    this.selectedItemColor,
+    this.unselectedItemColor,
   });
 
   @override
@@ -156,6 +166,12 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    final selectedColor = widget.selectedItemColor ?? theme.colorScheme.primary;
+    final unselectedColor =
+        widget.unselectedItemColor ??
+        (theme.brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.7)
+            : Colors.black.withValues(alpha: 0.6));
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -170,146 +186,25 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        height:
-            _barOpacity *
-            (widget.height + safeAreaBottom + widget.bottomPadding),
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: safeAreaBottom + widget.bottomPadding,
-          ),
-          child: Row(
-            children: [
-              // Main TabBar
-              Expanded(
-                flex: widget.showActionButton ? 4 : 1,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: Container(
-                      height: widget.height,
-                      decoration: BoxDecoration(
-                        color:
-                            (theme.brightness == Brightness.dark
-                                    ? Colors.black.withValues(alpha: 0.5)
-                                    : Colors.white.withValues(alpha: 0.7))
-                                .withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: theme.brightness == Brightness.dark
-                              ? Colors.white.withValues(alpha: 0.15)
-                              : Colors.black.withValues(alpha: 0.08),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: List.generate(widget.items.length, (index) {
-                          final item = widget.items[index];
-                          final isSelected = widget.currentIndex == index;
-
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => widget.onTap?.call(index),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeInOut,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? (theme.brightness == Brightness.dark
-                                            ? Colors.white.withValues(
-                                                alpha: 0.15,
-                                              )
-                                            : Colors.black.withValues(
-                                                alpha: 0.08,
-                                              ))
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: isSelected
-                                      ? Border.all(
-                                          color:
-                                              theme.brightness ==
-                                                  Brightness.dark
-                                              ? Colors.white.withValues(
-                                                  alpha: 0.25,
-                                                )
-                                              : Colors.black.withValues(
-                                                  alpha: 0.12,
-                                                ),
-                                          width: 0.5,
-                                        )
-                                      : null,
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    IconTheme(
-                                      data: IconThemeData(
-                                        size: isSelected ? 26 : 23,
-                                        color: isSelected
-                                            ? theme.colorScheme.primary
-                                            : (theme.brightness ==
-                                                      Brightness.dark
-                                                  ? Colors.white.withValues(
-                                                      alpha: 0.7,
-                                                    )
-                                                  : Colors.black.withValues(
-                                                      alpha: 0.6,
-                                                    )),
-                                      ),
-                                      child: item.icon,
-                                    ),
-                                    if (item.label != null) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        item.label!,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                          color: isSelected
-                                              ? theme.colorScheme.primary
-                                              : (theme.brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.white.withValues(
-                                                        alpha: 0.7,
-                                                      )
-                                                    : Colors.black.withValues(
-                                                        alpha: 0.6,
-                                                      )),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Action Button
-              if (widget.showActionButton) ...[
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: widget.onActionTap,
+        height: _barOpacity * (widget.height + safeAreaBottom),
+        child: Transform.translate(
+          offset: const Offset(0, 10),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: safeAreaBottom,
+            ),
+            child: Row(
+              children: [
+                // Main TabBar
+                Expanded(
+                  flex: widget.showActionButton ? 4 : 1,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(36),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                       child: Container(
-                        width: widget.height,
                         height: widget.height,
                         decoration: BoxDecoration(
                           color:
@@ -317,7 +212,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                       ? Colors.black.withValues(alpha: 0.5)
                                       : Colors.white.withValues(alpha: 0.7))
                                   .withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(28),
+                          borderRadius: BorderRadius.circular(36),
                           border: Border.all(
                             color: theme.brightness == Brightness.dark
                                 ? Colors.white.withValues(alpha: 0.15)
@@ -325,21 +220,135 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                             width: 1,
                           ),
                         ),
-                        child: IconTheme(
-                          data: IconThemeData(
-                            size: 24,
-                            color: theme.brightness == Brightness.dark
-                                ? Colors.white.withValues(alpha: 0.7)
-                                : Colors.black.withValues(alpha: 0.6),
-                          ),
-                          child: widget.actionIcon ?? const Icon(Icons.search),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: List.generate(widget.items.length, (index) {
+                            final item = widget.items[index];
+                            final isSelected = widget.currentIndex == index;
+
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () => widget.onTap?.call(index),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeInOut,
+                                  margin: EdgeInsets.symmetric(
+                                    horizontal: isSelected
+                                        ? 2
+                                        : 3, // Seçiliyken daha geniş
+                                    vertical: isSelected
+                                        ? 6
+                                        : 8, // Seçiliyken daha yassı
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? (theme.brightness == Brightness.dark
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.15,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                ))
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(
+                                      isSelected
+                                          ? 28
+                                          : 36, // Seçiliyken daha az yuvarlak (geoid)
+                                    ),
+                                    border: isSelected
+                                        ? Border.all(
+                                            color:
+                                                theme.brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.25,
+                                                  )
+                                                : Colors.black.withValues(
+                                                    alpha: 0.12,
+                                                  ),
+                                            width: 0.5,
+                                          )
+                                        : null,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      IconTheme(
+                                        data: IconThemeData(
+                                          size: isSelected ? 26 : 23,
+                                          color: isSelected
+                                              ? selectedColor
+                                              : unselectedColor,
+                                        ),
+                                        child: item.icon,
+                                      ),
+                                      if (item.label != null) ...[
+                                        const SizedBox(height: 3),
+                                        Flexible(
+                                          child: Text(
+                                            item.label!,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                              color: isSelected
+                                                  ? selectedColor
+                                                  : unselectedColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
                         ),
                       ),
                     ),
                   ),
                 ),
+
+                // Action Button
+                if (widget.showActionButton) ...[
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: widget.onActionTap,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(36), // Daha oval
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          width: widget.height,
+                          height: widget.height,
+                          decoration: BoxDecoration(
+                            color:
+                                (theme.brightness == Brightness.dark
+                                        ? Colors.black.withValues(alpha: 0.5)
+                                        : Colors.white.withValues(alpha: 0.7))
+                                    .withValues(alpha: 0.8),
+                          ),
+                          child: IconTheme(
+                            data: IconThemeData(
+                              size: 24,
+                              color: theme.brightness == Brightness.dark
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.black.withValues(alpha: 0.6),
+                            ),
+                            child:
+                                widget.actionIcon ?? const Icon(Icons.search),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

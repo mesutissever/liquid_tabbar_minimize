@@ -45,21 +45,20 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
       result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
       return
     }
-
     let windowScene = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
       .first { $0.activationState == .foregroundActive }
     let delegateWindow = UIApplication.shared.delegate?.window ?? nil
     let rootWindow: UIWindow? = windowScene?.windows.first ?? delegateWindow ?? nil
-
     let items = SwiftUITabBarPlatformView.parseItems(args: args)
     let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
     let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
-
+    let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
     let rootView = SwiftUITabBarScaffold(
       items: items,
       includeActionTab: includeAction,
       actionSymbol: actionSymbol,
+      selectedColor: selectedColor,
       onActionTap: { [weak self] in
         self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
       },
@@ -67,9 +66,8 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
         self?.eventChannel?.invokeMethod("onTabChanged", arguments: index)
       }
     )
-
     let hostVC = UIHostingController(rootView: rootView)
-    hostVC.modalPresentationStyle = .fullScreen
+    hostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
     presentedSwiftUITabVC = hostVC
 
     if #available(iOS 26.0, *) {

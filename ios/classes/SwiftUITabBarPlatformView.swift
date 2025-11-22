@@ -37,6 +37,7 @@ struct SwiftUITabBarScaffold: View {
     let items: [NativeTabItemData]
     let includeActionTab: Bool
     let actionSymbol: String
+    let selectedColor: Color
     let onActionTap: () -> Void
     let onTabChanged: (Int) -> Void
     @State private var selection: Int = 0
@@ -97,6 +98,7 @@ struct SwiftUITabBarScaffold: View {
                     onTabChanged(newValue)
                 }
             }
+            .tint(selectedColor) // Seçili tab rengi
         }
         .modifier(MinimizeBehaviorModifier())
     }
@@ -182,6 +184,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let items = SwiftUITabBarPlatformView.parseItems(args: args)
         let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
+        let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
 
         let channel = FlutterMethodChannel(
             name: "liquid_tabbar_minimize/events",
@@ -196,6 +199,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     items: items,
                     includeActionTab: includeAction,
                     actionSymbol: actionSymbol,
+                    selectedColor: selectedColor,
                     onActionTap: { [weak channel] in
                         channel?.invokeMethod("onActionTapped", arguments: nil)
                     },
@@ -289,6 +293,24 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
             return "magnifyingglass"
         }
         return symbol
+    }
+
+    static func parseSelectedColor(args: Any?) -> Color {
+        guard let dict = args as? [String: Any],
+              let hexString = dict["selectedColorHex"] as? String else {
+            return Color.blue
+        }
+        
+        let hex = hexString.replacingOccurrences(of: "#", with: "")
+        var rgbValue: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&rgbValue)
+        
+        let a = Double((rgbValue & 0xFF000000) >> 24) / 255.0
+        let r = Double((rgbValue & 0x00FF0000) >> 16) / 255.0
+        let g = Double((rgbValue & 0x0000FF00) >> 8) / 255.0
+        let b = Double(rgbValue & 0x000000FF) / 255.0
+        
+        return Color(red: r, green: g, blue: b, opacity: a)
     }
 
     static func defaultItems() -> [NativeTabItemData] {

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
-import 'dart:io';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -13,82 +10,98 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        // scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          surfaceTintColor: Colors.transparent,
+      theme: ThemeData.dark(),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidTabBar(
+      items: [
+        LiquidTabItem(
+          icon: 'house.fill',
+          label: 'Home',
+          child: _buildPage('Home', Colors.blue),
+          nativeData: List.generate(
+            20,
+            (i) => {
+              'title': 'Ana Sayfa ${i + 1}',
+              'subtitle': 'Burası home sayfası - item ${i + 1}',
+            },
+          ),
         ),
-      ),
-      home: const DemoPage(),
-    );
-  }
-}
-
-class DemoPage extends StatelessWidget {
-  const DemoPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // SwiftUI tab bar denemesi (iOS 18+). Android/platform dışı için altta fallback.
-    const items = [
-      NativeTabItem(sfSymbol: 'house.fill', label: 'Anasayfa'),
-      NativeTabItem(sfSymbol: 'globe', label: 'Keşfet'),
-      NativeTabItem(sfSymbol: 'gearshape.fill', label: 'Ayarlar'),
-    ];
-
-    if (Platform.isIOS) {
-      return NativeSwiftUIFullScreen(
-        items: items,
-        enableActionTab: true,
-        actionSymbol: 'magnifyingglass',
-        actionLabel: '',
-        onActionTap: () {
-          debugPrint('Native action tab tapped');
-        },
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Flutter fallback')),
-      body: const Center(child: Text('SwiftUI tab bar sadece iOS\'ta çalışır')),
-    );
-  }
-}
-
-class DemoListPage extends StatelessWidget {
-  final String title;
-  const DemoListPage({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar.large(
-          title: Text(title),
-          actions: [
-            IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-            IconButton(icon: const Icon(Icons.person), onPressed: () {}),
+        LiquidTabItem(
+          icon: 'globe',
+          label: 'Explore',
+          child: _buildPage('Explore', Colors.green),
+          nativeData: List.generate(
+            25,
+            (i) => {
+              'title': 'Keşfet ${i + 1}',
+              'subtitle': 'Yeni içerik keşfet - ${i + 1}',
+            },
+          ),
+        ),
+        LiquidTabItem(
+          icon: 'star.fill',
+          label: 'Favorites',
+          child: _buildPage('Favorites', Colors.orange),
+          nativeData: List.generate(
+            30,
+            (i) => {
+              'title': 'Favori ${i + 1}',
+              'subtitle': 'Bu benim favori item\'im',
+            },
+          ),
+        ),
+        LiquidTabItem(
+          icon: 'gearshape.fill',
+          label: 'Settings',
+          child: _buildPage('Settings', Colors.purple),
+          nativeData: [
+            {'title': 'Hesap', 'subtitle': 'Profil ayarları'},
+            {'title': 'Bildirimler', 'subtitle': 'Bildirim tercihleri'},
+            {'title': 'Gizlilik', 'subtitle': 'Gizlilik ayarları'},
+            {'title': 'Güvenlik', 'subtitle': 'Şifre ve güvenlik'},
+            {'title': 'Dil', 'subtitle': 'Türkçe'},
+            {'title': 'Tema', 'subtitle': 'Koyu mod'},
+            {'title': 'Yardım', 'subtitle': 'SSS ve destek'},
+            {'title': 'Hakkında', 'subtitle': 'Versiyon 1.0.0'},
           ],
         ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            return ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.grey[800],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              title: Text('$title item $index'),
-              subtitle: const Text('Description text here'),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-            );
-          }, childCount: 100),
-        ),
       ],
+      showActionTab: true,
+      actionIcon: 'magnifyingglass',
+      onActionTap: () {
+        debugPrint('Search tapped!');
+      },
+      onTabChanged: (index) {
+        debugPrint('Tab changed to: $index');
+      },
+    );
+  }
+
+  Widget _buildPage(String title, Color color) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title), backgroundColor: color),
+      body: ListView.builder(
+        itemCount: 50,
+        itemBuilder: (context, index) {
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: color.withOpacity(0.3),
+              child: Text('${index + 1}'),
+            ),
+            title: Text('$title Item ${index + 1}'),
+            subtitle: const Text('Scroll down to minimize tab bar'),
+          );
+        },
+      ),
     );
   }
 }

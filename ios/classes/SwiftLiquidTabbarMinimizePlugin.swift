@@ -58,6 +58,9 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
       actionSymbol: actionSymbol,
       onActionTap: { [weak self] in
         self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
+      },
+      onTabChanged: { [weak self] index in
+        self?.eventChannel?.invokeMethod("onTabChanged", arguments: index)
       }
     )
     let hostVC = UIHostingController(rootView: rootView)

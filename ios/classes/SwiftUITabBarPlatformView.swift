@@ -27,6 +27,7 @@ struct SwiftUITabBarScaffold: View {
     let includeActionTab: Bool
     let actionSymbol: String
     let onActionTap: () -> Void
+    let onTabChanged: (Int) -> Void
     @State private var selection: Int = 0
     @State private var lastNonActionSelection: Int = 0
 
@@ -59,7 +60,13 @@ struct SwiftUITabBarScaffold: View {
                 if includeActionTab {
                     let symbol = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
                     Tab("", systemImage: symbol, value: -1, role: .search) {
-                        Color.clear
+                        VStack {
+                            Text("Search")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemBackground))
                     }
                 }
             }
@@ -70,11 +77,13 @@ struct SwiftUITabBarScaffold: View {
             }
             .onChange(of: selection) { newValue in
                 if includeActionTab && newValue == -1 {
+                    // Search tab seçildi - callback çağır ama selection'ı değiştirme
                     onActionTap()
-                    selection = lastNonActionSelection
-                }
-                if newValue != -1 {
+                    // Search tab seçili kalsın
+                } else if newValue != -1 {
+                    // Normal tab seçildi
                     lastNonActionSelection = newValue
+                    onTabChanged(newValue)
                 }
             }
         }
@@ -164,7 +173,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
 
         let channel = FlutterMethodChannel(
-            name: "liquid_tabbar_minimize/swiftui_presenter",
+            name: "liquid_tabbar_minimize/events",
             binaryMessenger: messenger
         )
         self.eventChannel = channel
@@ -176,8 +185,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     items: items,
                     includeActionTab: includeAction,
                     actionSymbol: actionSymbol,
-                    onActionTap: { [weak self] in
-                        self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
+                    onActionTap: { [weak channel] in
+                        channel?.invokeMethod("onActionTapped", arguments: nil)
+                    },
+                    onTabChanged: { [weak channel] index in
+                        channel?.invokeMethod("onTabChanged", arguments: index)
                     }
                 )
             )
@@ -225,9 +237,27 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
             return SwiftUITabBarPlatformView.defaultItems()
         }
 
+        let nativeDataArray = dict["nativeData"] as? [[Any]] ?? []
+
         var items: [NativeTabItemData] = []
         for i in 0..<count {
-            let articles = SwiftUITabBarPlatformView.sampleArticles(prefix: labels[i])
+            let articles: [Article]
+            
+            // Flutter'dan gelen data varsa onu kullan
+            if i < nativeDataArray.count && !nativeDataArray[i].isEmpty {
+                articles = nativeDataArray[i].compactMap { item in
+                    guard let itemDict = item as? [String: Any],
+                          let title = itemDict["title"] as? String,
+                          let subtitle = itemDict["subtitle"] as? String else {
+                        return nil
+                    }
+                    return Article(title: title, subtitle: subtitle)
+                }
+            } else {
+                // Fallback: sample data
+                articles = SwiftUITabBarPlatformView.sampleArticles(prefix: labels[i])
+            }
+            
             let item = NativeTabItemData(id: i, title: labels[i], symbol: symbols[i], articles: articles)
             items.append(item)
         }

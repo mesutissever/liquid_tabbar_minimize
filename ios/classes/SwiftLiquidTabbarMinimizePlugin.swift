@@ -40,8 +40,9 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
   }
 
   private func presentSwiftUITabBar(args: Any?, result: @escaping FlutterResult) {
-    guard #available(iOS 26.0, *) else {
-      result(FlutterError(code: "unavailable", message: "Requires iOS 26+ for tabBarMinimizeBehavior", details: nil))
+    // iOS 26 öncesinde de izin ver (minimize yok)
+    guard #available(iOS 18.0, *) else {
+      result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
       return
     }
     let windowScene = UIApplication.shared.connectedScenes
@@ -52,10 +53,12 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
     let items = SwiftUITabBarPlatformView.parseItems(args: args)
     let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
     let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
+    let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
     let rootView = SwiftUITabBarScaffold(
       items: items,
       includeActionTab: includeAction,
       actionSymbol: actionSymbol,
+      selectedColor: selectedColor,
       onActionTap: { [weak self] in
         self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
       },
@@ -67,23 +70,26 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
     hostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
     presentedSwiftUITabVC = hostVC
 
-    // Create an overlay window so TabView sits at the top of the scene (required for native minimize to animate).
-    if let scene = rootWindow?.windowScene ?? windowScene {
-      previousKeyWindow = rootWindow
-      let newWindow = UIWindow(windowScene: scene)
-      newWindow.rootViewController = hostVC
-      newWindow.windowLevel = .normal
-      newWindow.makeKeyAndVisible()
-      overlayWindow = newWindow
-      print("[SwiftUITabBar] presented overlay window for native minimize")
-      result(nil)
-    } else {
-      // Fallback: present modally if we cannot create window
-      if let rootVC = rootWindow?.rootViewController {
-        rootVC.present(hostVC, animated: true) { result(nil) }
-      } else {
-        result(FlutterError(code: "no_root_vc", message: "Root view controller not found", details: nil))
+    if #available(iOS 26.0, *) {
+      // minimize animasyonu için overlay window
+      if let scene = rootWindow?.windowScene ?? windowScene {
+        previousKeyWindow = rootWindow
+        let newWindow = UIWindow(windowScene: scene)
+        newWindow.rootViewController = hostVC
+        newWindow.windowLevel = .normal
+        newWindow.makeKeyAndVisible()
+        overlayWindow = newWindow
+        print("[SwiftUITabBar] overlay (iOS 26+) aktif")
+        result(nil)
+        return
       }
+    }
+
+    // iOS 18–25 veya overlay başarısız
+    if let rootVC = rootWindow?.rootViewController {
+      rootVC.present(hostVC, animated: true) { result(nil) }
+    } else {
+      result(FlutterError(code: "no_root_vc", message: "Root view controller not found", details: nil))
     }
   }
 

@@ -193,7 +193,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Created with ❤️ by the Flutter community
+Created with ❤️ by Mesut
 
 ---
 

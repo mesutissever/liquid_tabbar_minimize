@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
 
@@ -16,80 +17,27 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return LiquidTabBar(
-      items: [
-        LiquidTabItem(
-          icon: 'house.fill',
-          label: 'Home',
-          child: _buildPage('Home', Colors.blue),
-          nativeData: List.generate(
-            20,
-            (i) => {
-              'title': 'Ana Sayfa ${i + 1}',
-              'subtitle': 'Burası home sayfası - item ${i + 1}',
-            },
-          ),
-        ),
-        LiquidTabItem(
-          icon: 'globe',
-          label: 'Explore',
-          child: _buildPage('Explore', Colors.green),
-          nativeData: List.generate(
-            25,
-            (i) => {
-              'title': 'Keşfet ${i + 1}',
-              'subtitle': 'Yeni içerik keşfet - ${i + 1}',
-            },
-          ),
-        ),
-        LiquidTabItem(
-          icon: 'star.fill',
-          label: 'Favorites',
-          child: _buildPage('Favorites', Colors.orange),
-          nativeData: List.generate(
-            30,
-            (i) => {
-              'title': 'Favori ${i + 1}',
-              'subtitle': 'Bu benim favori item\'im',
-            },
-          ),
-        ),
-        LiquidTabItem(
-          icon: 'gearshape.fill',
-          label: 'Settings',
-          child: _buildPage('Settings', Colors.purple),
-          nativeData: [
-            {'title': 'Hesap', 'subtitle': 'Profil ayarları'},
-            {'title': 'Bildirimler', 'subtitle': 'Bildirim tercihleri'},
-            {'title': 'Gizlilik', 'subtitle': 'Gizlilik ayarları'},
-            {'title': 'Güvenlik', 'subtitle': 'Şifre ve güvenlik'},
-            {'title': 'Dil', 'subtitle': 'Türkçe'},
-            {'title': 'Tema', 'subtitle': 'Koyu mod'},
-            {'title': 'Yardım', 'subtitle': 'SSS ve destek'},
-            {'title': 'Hakkında', 'subtitle': 'Versiyon 1.0.0'},
-          ],
-        ),
-      ],
-      // Yeni parametreler
-      showActionTab: true,
-      actionIcon: 'magnifyingglass',
-      bottomPadding: 0, // Home indicator'dan yukarıda
-      tabBarHeight: 68,
-      onActionTap: () {
-        debugPrint('Search tapped!');
-      },
-      onTabChanged: (index) {
-        debugPrint('Tab changed to: $index');
-      },
-    );
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _selectedIndex = 0;
+
+  // iOS 26+ için SF Symbol mapping
+  String _iconToSFSymbol(IconData icon) {
+    if (icon == Icons.home) return 'house.fill';
+    if (icon == Icons.public) return 'globe';
+    if (icon == Icons.star) return 'star.fill';
+    if (icon == Icons.settings) return 'gearshape.fill';
+
+    return 'circle.fill'; // fallback
   }
 
-  Widget _buildPage(String title, Color color) {
+  static Widget _buildPage(String title, Color color) {
     return Scaffold(
       appBar: AppBar(title: Text(title), backgroundColor: color),
       body: ListView.builder(
@@ -97,13 +45,74 @@ class HomePage extends StatelessWidget {
         itemBuilder: (context, index) {
           return ListTile(
             leading: CircleAvatar(
-              backgroundColor: color.withOpacity(0.3),
+              backgroundColor: color.withValues(alpha: 0.3),
               child: Text('${index + 1}'),
             ),
             title: Text('$title Item ${index + 1}'),
-            subtitle: const Text('Scroll down to minimize tab bar'),
+            subtitle: const Text('Scroll to see liquid effect'),
           );
         },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildPage('Home', Colors.blue),
+          _buildPage('Explore', Colors.green),
+          _buildPage('Favorites', Colors.orange),
+          _buildPage('Settings', Colors.purple),
+          // Action button için 5. sayfa
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Search',
+                  style: TextStyle(fontSize: 24, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: LiquidBottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() => _selectedIndex = index);
+          debugPrint('Tab index: $index');
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.public), label: 'Explore'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+        pages: [
+          _buildPage('Home', Colors.blue),
+          _buildPage('Explore', Colors.green),
+          _buildPage('Favorites', Colors.orange),
+          _buildPage('Settings', Colors.purple),
+        ],
+        sfSymbolMapper: _iconToSFSymbol,
+        showActionButton: true,
+        actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+        onActionTap: () {
+          debugPrint('Search tapped!');
+          setState(() => _selectedIndex = 4); // 5. sayfaya git
+        },
+        height: 68,
+        bottomPadding: 8,
       ),
     );
   }

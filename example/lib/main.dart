@@ -26,8 +26,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  double _lastScrollOffset = 0;
 
-  // iOS 26+ için SF Symbol mapping
+  // iOS 26+ SF Symbol mapping
   String _iconToSFSymbol(IconData icon) {
     if (icon == Icons.home) return 'house.fill';
     if (icon == Icons.public) return 'globe';
@@ -37,23 +38,42 @@ class _HomePageState extends State<HomePage> {
     return 'circle.fill'; // fallback
   }
 
-  static Widget _buildPage(String title, Color color) {
+  static Widget _buildPageWithScroll(
+    String title,
+    Color color,
+    int count,
+    Function(double, double) onScroll,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(title), backgroundColor: color),
-      body: ListView.builder(
-        itemCount: 50,
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.3),
-              child: Text('${index + 1}'),
-            ),
-            title: Text('$title Item ${index + 1}'),
-            subtitle: const Text('Scroll to see liquid effect'),
-          );
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            onScroll(notification.metrics.pixels, notification.metrics.pixels);
+          }
+          return false;
         },
+        child: ListView.builder(
+          itemCount: count,
+          itemBuilder: (context, index) {
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.3),
+                child: Text('${index + 1}'),
+              ),
+              title: Text('$title Item ${index + 1}'),
+              subtitle: const Text('Scroll to see liquid effect'),
+            );
+          },
+        ),
       ),
     );
+  }
+
+  void _handleScroll(double offset, double delta) {
+    final barState = LiquidBottomNavigationBar.barKey.currentState;
+    barState?.handleScroll(offset, offset - _lastScrollOffset);
+    _lastScrollOffset = offset;
   }
 
   @override
@@ -63,10 +83,10 @@ class _HomePageState extends State<HomePage> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildPage('Home', Colors.blue),
-          _buildPage('Explore', Colors.green),
-          _buildPage('Favorites', Colors.orange),
-          _buildPage('Settings', Colors.purple),
+          _buildPageWithScroll('Home', Colors.blue, 12, _handleScroll),
+          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
+          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
+          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -98,11 +118,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         pages: [
-          _buildPage('Home', Colors.blue),
-          _buildPage('Explore', Colors.green),
-          _buildPage('Favorites', Colors.orange),
-          _buildPage('Settings', Colors.purple),
+          _buildPageWithScroll('Home', Colors.blue, 10, _handleScroll),
+          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
+          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
+          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
         ],
+        itemCounts: const [12, 50, 50, 50], // Item counts for iOS 26+ native
         sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
         actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
@@ -110,9 +131,13 @@ class _HomePageState extends State<HomePage> {
           debugPrint('Search tapped!');
           setState(() => _selectedIndex = 4);
         },
-        selectedItemColor: Colors.blue, // Özel renk
-        unselectedItemColor: Colors.grey, // Özel renk
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        labelVisibility: LabelVisibility.always,
         height: 68,
+        minimizeThreshold: 0.1, // Minimize after 100px scroll
+        forceCustomBar:
+            false, // Use custom bar even on iOS 26+ (for threshold control)
       ),
     );
   }

@@ -2,17 +2,6 @@ import Flutter
 import SwiftUI
 import UIKit
 
-// NOTE:
-// iOS 18.6 çalışmaması iki sebepli:
-// 1) Xcode'da iOS 18.6 runtime yüklü değil (Platform Runtimes bölümünden indirin, sonra yeni iPhone 16 iOS 18.6 simulator ekleyin).
-// 2) presentSwiftUITabBar içinde (SwiftLiquidTabbarMinimizePlugin.swift) guard #available(iOS 26.0, *) kullanıldığı için iOS 18.x bloklanıyor.
-//    O guard'ı şöyle değiştirin:
-//    guard #available(iOS 18.0, *) else {
-//        result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
-//        return
-//    }
-//    iOS 26 dışı sürümlerde minimize yok ama TabView normal çalışır.
-
 // MARK: - Models
 
 @available(iOS 14.0, *)
@@ -38,8 +27,10 @@ struct SwiftUITabBarScaffold: View {
     let includeActionTab: Bool
     let actionSymbol: String
     let selectedColor: Color
+    let labelVisibility: String // "selectedOnly", "always", "never"
     let onActionTap: () -> Void
     let onTabChanged: (Int) -> Void
+    let minimizeThreshold: Double
     @State private var selection: Int = 0
     @State private var lastNonActionSelection: Int = 0
 
@@ -49,23 +40,51 @@ struct SwiftUITabBarScaffold: View {
                 ForEach(items) { item in
                     Tab(value: item.id) {
                         navigationContainer {
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 12) {
-                                    ForEach(item.articles) { article in
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            Text(article.title).font(.headline)
-                                            Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                            GeometryReader { geometry in
+                                ScrollViewReader { scrollProxy in
+                                    ScrollView {
+                                        LazyVStack(alignment: .leading, spacing: 12) {
+                                            ForEach(item.articles) { article in
+                                                VStack(alignment: .leading, spacing: 6) {
+                                                    Text(article.title).font(.headline)
+                                                    Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
+                                                }
+                                                .padding(.vertical, 8)
+                                                .padding(.horizontal, 16)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            }
                                         }
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 16)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(GeometryReader { contentGeometry in
+                                            Color.clear.preference(
+                                                key: ScrollOffsetPreferenceKey.self,
+                                                value: contentGeometry.frame(in: .named("scrollView")).minY
+                                            )
+                                        })
+                                    }
+                                    .coordinateSpace(name: "scrollView")
+                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                                        // Threshold check
+                                        let contentHeight = Double(item.articles.count) * 50.0
+                                        let scrollPercentage = abs(offset) / contentHeight
+                                        
+                                        if scrollPercentage > minimizeThreshold {
+                                            // Should minimize
+                                        }
                                     }
                                 }
                             }
                             .navigationTitle(item.title)
                         }
                     } label: {
-                        Label(item.title, systemImage: item.symbol)
+                        if shouldShowLabel(for: item.id) {
+                            Label(item.title, systemImage: item.symbol)
+                        } else {
+                            Label {
+                                Text("")
+                            } icon: {
+                                Image(systemName: item.symbol)
+                            }
+                        }
                     }
                 }
 
@@ -89,18 +108,28 @@ struct SwiftUITabBarScaffold: View {
             }
             .onChange(of: selection) { newValue in
                 if includeActionTab && newValue == -1 {
-                    // Search tab seçildi - callback çağır ama selection'ı değiştirme
+                    // Search tab selected
                     onActionTap()
-                    // Search tab seçili kalsın
                 } else if newValue != -1 {
-                    // Normal tab seçildi
+                    // Normal tab selected
                     lastNonActionSelection = newValue
                     onTabChanged(newValue)
                 }
             }
-            .tint(selectedColor) // Seçili tab rengi
+            .tint(selectedColor)
         }
         .modifier(MinimizeBehaviorModifier())
+    }
+
+    private func shouldShowLabel(for itemId: Int) -> Bool {
+        switch labelVisibility {
+        case "selectedOnly":
+            return selection == itemId
+        case "never":
+            return false
+        default: // "always"
+            return true
+        }
     }
 
     @ViewBuilder
@@ -121,6 +150,13 @@ private struct MinimizeBehaviorModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -185,6 +221,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
         let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
+        let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
+        let minimizeThreshold = SwiftUITabBarPlatformView.parseMinimizeThreshold(args: args)
 
         let channel = FlutterMethodChannel(
             name: "liquid_tabbar_minimize/events",
@@ -200,12 +238,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
                     includeActionTab: includeAction,
                     actionSymbol: actionSymbol,
                     selectedColor: selectedColor,
+                    labelVisibility: labelVisibility,
                     onActionTap: { [weak channel] in
                         channel?.invokeMethod("onActionTapped", arguments: nil)
                     },
                     onTabChanged: { [weak channel] index in
                         channel?.invokeMethod("onTabChanged", arguments: index)
-                    }
+                    },
+                    minimizeThreshold: minimizeThreshold
                 )
             )
         } else {
@@ -258,7 +298,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         for i in 0..<count {
             let articles: [Article]
             
-            // Flutter'dan gelen data varsa onu kullan
+            // Use data from Flutter if available
             if i < nativeDataArray.count && !nativeDataArray[i].isEmpty {
                 articles = nativeDataArray[i].compactMap { item in
                     guard let itemDict = item as? [String: Any],
@@ -311,6 +351,22 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let b = Double(rgbValue & 0x000000FF) / 255.0
         
         return Color(red: r, green: g, blue: b, opacity: a)
+    }
+
+    static func parseLabelVisibility(args: Any?) -> String {
+        guard let dict = args as? [String: Any],
+              let visibility = dict["labelVisibility"] as? String else {
+            return "always"
+        }
+        return visibility
+    }
+
+    static func parseMinimizeThreshold(args: Any?) -> Double {
+        guard let dict = args as? [String: Any],
+              let threshold = dict["minimizeThreshold"] as? Double else {
+            return 0.1 // Default 10%
+        }
+        return threshold
     }
 
     static func defaultItems() -> [NativeTabItemData] {

@@ -60,7 +60,13 @@ struct SwiftUITabBarScaffold: View {
                 if includeActionTab {
                     let symbol = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
                     Tab("", systemImage: symbol, value: -1, role: .search) {
-                        Color.clear
+                        VStack {
+                            Text("Search")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemBackground))
                     }
                 }
             }
@@ -71,9 +77,11 @@ struct SwiftUITabBarScaffold: View {
             }
             .onChange(of: selection) { newValue in
                 if includeActionTab && newValue == -1 {
+                    // Search tab seçildi - callback çağır ama selection'ı değiştirme
                     onActionTap()
-                    selection = lastNonActionSelection
+                    // Search tab seçili kalsın
                 } else if newValue != -1 {
+                    // Normal tab seçildi
                     lastNonActionSelection = newValue
                     onTabChanged(newValue)
                 }

@@ -5,201 +5,63 @@ import UIKit
 // MARK: - Models
 
 @available(iOS 14.0, *)
-struct Article: Identifiable {
-    let id = UUID()
-    let title: String
-    let subtitle: String
-}
-
-@available(iOS 14.0, *)
 struct NativeTabItemData: Identifiable {
     let id: Int
     let title: String
     let symbol: String
-    let articles: [Article]
 }
 
-// MARK: - iOS 18+ Tab API Scaffold
+// MARK: - SwiftUI Liquid Glass Action Button
 
-@available(iOS 18.0, *)
-struct SwiftUITabBarScaffold: View {
-    let items: [NativeTabItemData]
-    let includeActionTab: Bool
-    let actionSymbol: String
-    let selectedColor: Color
-    let labelVisibility: String // "selectedOnly", "always", "never"
-    let onActionTap: () -> Void
-    let onTabChanged: (Int) -> Void
-    let minimizeThreshold: Double
-    @State private var selection: Int = 0
-    @State private var lastNonActionSelection: Int = 0
-
+@available(iOS 15.0, *)
+struct LiquidGlassActionButton: View {
+    let symbol: String
+    let action: () -> Void
+    let size: CGFloat
+    let tint: Color
+    
     var body: some View {
-        Group {
-            TabView(selection: $selection) {
-                ForEach(items) { item in
-                    Tab(value: item.id) {
-                        navigationContainer {
-                            GeometryReader { geometry in
-                                ScrollViewReader { scrollProxy in
-                                    ScrollView {
-                                        LazyVStack(alignment: .leading, spacing: 12) {
-                                            ForEach(item.articles) { article in
-                                                VStack(alignment: .leading, spacing: 6) {
-                                                    Text(article.title).font(.headline)
-                                                    Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
-                                                }
-                                                .padding(.vertical, 8)
-                                                .padding(.horizontal, 16)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                            }
-                                        }
-                                        .background(GeometryReader { contentGeometry in
-                                            Color.clear.preference(
-                                                key: ScrollOffsetPreferenceKey.self,
-                                                value: contentGeometry.frame(in: .named("scrollView")).minY
-                                            )
-                                        })
-                                    }
-                                    .coordinateSpace(name: "scrollView")
-                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                                        // Threshold check
-                                        let contentHeight = Double(item.articles.count) * 50.0
-                                        let scrollPercentage = abs(offset) / contentHeight
-                                        
-                                        if scrollPercentage > minimizeThreshold {
-                                            // Should minimize
-                                        }
-                                    }
-                                }
-                            }
-                            .navigationTitle(item.title)
-                        }
-                    } label: {
-                        if shouldShowLabel(for: item.id) {
-                            Label(item.title, systemImage: item.symbol)
-                        } else {
-                            Label {
-                                Text("")
-                            } icon: {
-                                Image(systemName: item.symbol)
-                            }
-                        }
-                    }
-                }
-
-                if includeActionTab {
-                    let symbol = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
-                    Tab("", systemImage: symbol, value: -1, role: .search) {
-                        VStack {
-                            Text("Search")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(.systemBackground))
-                    }
-                }
-            }
-            .onAppear {
-                let first = items.first?.id ?? 0
-                selection = first
-                lastNonActionSelection = first
-            }
-            .onChange(of: selection) { newValue in
-                if includeActionTab && newValue == -1 {
-                    // Search tab selected
-                    onActionTap()
-                } else if newValue != -1 {
-                    // Normal tab selected
-                    lastNonActionSelection = newValue
-                    onTabChanged(newValue)
-                }
-            }
-            .tint(selectedColor)
-        }
-        .modifier(MinimizeBehaviorModifier())
-    }
-
-    private func shouldShowLabel(for itemId: Int) -> Bool {
-        switch labelVisibility {
-        case "selectedOnly":
-            return selection == itemId
-        case "never":
-            return false
-        default: // "always"
-            return true
-        }
-    }
-
-    @ViewBuilder
-    private func navigationContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if #available(iOS 16.0, *) {
-            NavigationStack { content() }
-        } else {
-            NavigationView { content() }
-        }
-    }
-}
-
-@available(iOS 18.0, *)
-private struct MinimizeBehaviorModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.tabBarMinimizeBehavior(.onScrollDown)
-        } else {
-            content
-        }
-    }
-}
-
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-// MARK: - iOS 14-17 Fallback
-
-@available(iOS 14.0, *)
-struct SwiftUITabBarFallback: View {
-    let items: [NativeTabItemData]
-
-    var body: some View {
-        TabView {
-            ForEach(items) { item in
-                navigationContainer {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(item.articles) { article in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(article.title).font(.headline)
-                                    Text(article.subtitle).font(.subheadline).foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 16)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                    }
-                    .navigationTitle(item.title)
-                }
-                .tabItem {
-                    Label(item.title, systemImage: item.symbol)
-                }
-                .tag(item.id)
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.04),
+                                Color.white.opacity(0.01)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .opacity(0.6)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.03)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.5
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
+                
+                Image(systemName: symbol)
+                    .font(.system(size: size * 0.42, weight: .medium))
+                    .foregroundColor(tint.opacity(0.6))
             }
         }
-    }
-
-    @ViewBuilder
-    private func navigationContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if #available(iOS 16.0, *) {
-            NavigationStack { content() }
-        } else {
-            NavigationView { content() }
-        }
+        .buttonStyle(.plain)
+        .frame(width: size, height: size)
     }
 }
 
@@ -210,7 +72,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
     private let container: UIView
     private let messenger: FlutterBinaryMessenger
     private var eventChannel: FlutterMethodChannel?
-    private weak var hostingController: UIHostingController<AnyView>?
+    private var tabBar: UITabBar?
+    private var actionHosting: UIHostingController<LiquidGlassActionButton>?
 
     init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
         self.container = UIView(frame: frame)
@@ -221,61 +84,89 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
         let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
         let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
         let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
-        let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
-        let minimizeThreshold = SwiftUITabBarPlatformView.parseMinimizeThreshold(args: args)
 
-        let channel = FlutterMethodChannel(
+        let evtChannel = FlutterMethodChannel(
             name: "liquid_tabbar_minimize/events",
             binaryMessenger: messenger
         )
-        self.eventChannel = channel
+        self.eventChannel = evtChannel
 
-        let rootView: AnyView
-        if #available(iOS 18.0, *) {
-            rootView = AnyView(
-                SwiftUITabBarScaffold(
-                    items: items,
-                    includeActionTab: includeAction,
-                    actionSymbol: actionSymbol,
-                    selectedColor: selectedColor,
-                    labelVisibility: labelVisibility,
-                    onActionTap: { [weak channel] in
-                        channel?.invokeMethod("onActionTapped", arguments: nil)
-                    },
-                    onTabChanged: { [weak channel] index in
-                        channel?.invokeMethod("onTabChanged", arguments: index)
-                    },
-                    minimizeThreshold: minimizeThreshold
-                )
+        // --- Native UITabBar ---
+        let nativeTabBar = UITabBar()
+        nativeTabBar.translatesAutoresizingMaskIntoConstraints = false
+        nativeTabBar.delegate = self
+        nativeTabBar.tintColor = UIColor(selectedColor)
+        nativeTabBar.unselectedItemTintColor = UIColor.gray
+        nativeTabBar.isTranslucent = true
+
+        if #available(iOS 13.0, *) {
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.stackedLayoutAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
+            appearance.stackedLayoutAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
+            appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
+            appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
+            nativeTabBar.standardAppearance = appearance
+            if #available(iOS 15.0, *) {
+                nativeTabBar.scrollEdgeAppearance = appearance
+            }
+        }
+
+        var tabBarItems: [UITabBarItem] = []
+        for item in items {
+            let tabItem = UITabBarItem(
+                title: item.title,
+                image: UIImage(systemName: item.symbol),
+                tag: item.id
             )
-        } else {
-            rootView = AnyView(SwiftUITabBarFallback(items: items))
+            tabBarItems.append(tabItem)
         }
 
-        let host = UIHostingController(rootView: rootView)
-        host.view.backgroundColor = .clear
-        host.view.translatesAutoresizingMaskIntoConstraints = false
-        hostingController = host
+        nativeTabBar.items = tabBarItems
+        nativeTabBar.selectedItem = tabBarItems.first
+        self.tabBar = nativeTabBar
 
-        if let parentVC = UIApplication.shared.delegate?.window??.rootViewController {
-            parentVC.addChild(host)
-        }
+        container.backgroundColor = .clear
+        container.addSubview(nativeTabBar)
 
-        container.addSubview(host.view)
         NSLayoutConstraint.activate([
-            host.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            host.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            host.view.topAnchor.constraint(equalTo: container.topAnchor),
-            host.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            nativeTabBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            nativeTabBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            nativeTabBar.topAnchor.constraint(equalTo: container.topAnchor),
+            nativeTabBar.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
 
-        if let parentVC = UIApplication.shared.delegate?.window??.rootViewController {
-            host.didMove(toParent: parentVC)
+        // --- Action button ---
+        if includeAction, #available(iOS 15.0, *) {
+            let buttonSize: CGFloat = 44
+            let buttonView = LiquidGlassActionButton(
+                symbol: actionSymbol,
+                action: { [weak self] in
+                    self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
+                },
+                size: buttonSize,
+                tint: selectedColor
+            )
+
+            let hosting = UIHostingController(rootView: buttonView)
+            hosting.view.backgroundColor = .clear
+            hosting.view.translatesAutoresizingMaskIntoConstraints = false
+
+            container.addSubview(hosting.view)
+            container.bringSubviewToFront(hosting.view)
+            self.actionHosting = hosting
+
+            NSLayoutConstraint.activate([
+                hosting.view.widthAnchor.constraint(equalToConstant: buttonSize),
+                hosting.view.heightAnchor.constraint(equalToConstant: buttonSize),
+                hosting.view.trailingAnchor.constraint(equalTo: container.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+                hosting.view.centerYAnchor.constraint(equalTo: nativeTabBar.centerYAnchor, constant: -8)
+            ])
         }
     }
 
     func view() -> UIView {
-        container
+        return container
     }
 
     // MARK: - Helpers
@@ -286,35 +177,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
               let symbols = dict["sfSymbols"] as? [String] else {
             return SwiftUITabBarPlatformView.defaultItems()
         }
-
         let count = min(labels.count, symbols.count)
-        if count == 0 {
-            return SwiftUITabBarPlatformView.defaultItems()
-        }
-
-        let nativeDataArray = dict["nativeData"] as? [[Any]] ?? []
-
+        if count == 0 { return SwiftUITabBarPlatformView.defaultItems() }
         var items: [NativeTabItemData] = []
         for i in 0..<count {
-            let articles: [Article]
-            
-            // Use data from Flutter if available
-            if i < nativeDataArray.count && !nativeDataArray[i].isEmpty {
-                articles = nativeDataArray[i].compactMap { item in
-                    guard let itemDict = item as? [String: Any],
-                          let title = itemDict["title"] as? String,
-                          let subtitle = itemDict["subtitle"] as? String else {
-                        return nil
-                    }
-                    return Article(title: title, subtitle: subtitle)
-                }
-            } else {
-                // Fallback: sample data
-                articles = SwiftUITabBarPlatformView.sampleArticles(prefix: labels[i])
-            }
-            
-            let item = NativeTabItemData(id: i, title: labels[i], symbol: symbols[i], articles: articles)
-            items.append(item)
+            items.append(NativeTabItemData(id: i, title: labels[i], symbol: symbols[i]))
         }
         return items
     }
@@ -340,67 +207,36 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView {
               let hexString = dict["selectedColorHex"] as? String else {
             return Color.blue
         }
-        
-        let hex = hexString.replacingOccurrences(of: "#", with: "")
+        var hex = hexString.replacingOccurrences(of: "#", with: "")
+        if hex.count == 6 { hex = "FF" + hex }
         var rgbValue: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&rgbValue)
-        
         let a = Double((rgbValue & 0xFF000000) >> 24) / 255.0
         let r = Double((rgbValue & 0x00FF0000) >> 16) / 255.0
         let g = Double((rgbValue & 0x0000FF00) >> 8) / 255.0
         let b = Double(rgbValue & 0x000000FF) / 255.0
-        
-        return Color(red: r, green: g, blue: b, opacity: a)
-    }
-
-    static func parseLabelVisibility(args: Any?) -> String {
-        guard let dict = args as? [String: Any],
-              let visibility = dict["labelVisibility"] as? String else {
-            return "always"
-        }
-        return visibility
-    }
-
-    static func parseMinimizeThreshold(args: Any?) -> Double {
-        guard let dict = args as? [String: Any],
-              let threshold = dict["minimizeThreshold"] as? Double else {
-            return 0.1 // Default 10%
-        }
-        return threshold
+        return Color(red: r, green: g, blue: b, opacity: max(a, 1.0))
     }
 
     static func defaultItems() -> [NativeTabItemData] {
         return [
-            NativeTabItemData(
-                id: 0,
-                title: "Home",
-                symbol: "house.fill",
-                articles: sampleArticles(prefix: "Appointment")
-            ),
-            NativeTabItemData(
-                id: 1,
-                title: "Explore",
-                symbol: "globe",
-                articles: sampleArticles(prefix: "Guide")
-            ),
-            NativeTabItemData(
-                id: 2,
-                title: "Settings",
-                symbol: "gearshape.fill",
-                articles: sampleArticles(prefix: "Setting")
-            ),
+            NativeTabItemData(id: 0, title: "Home", symbol: "house.fill"),
+            NativeTabItemData(id: 1, title: "Explore", symbol: "globe"),
+            NativeTabItemData(id: 2, title: "Settings", symbol: "gearshape.fill"),
         ]
     }
+}
 
-    static func sampleArticles(prefix: String) -> [Article] {
-        return (1...50).map { idx in
-            Article(
-                title: "\(prefix) \(idx)",
-                subtitle: "Subtitle \(idx)"
-            )
-        }
+// MARK: - UITabBarDelegate
+
+@available(iOS 14.0, *)
+extension SwiftUITabBarPlatformView: UITabBarDelegate {
+    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        eventChannel?.invokeMethod("onTabChanged", arguments: item.tag)
     }
 }
+
+// MARK: - Factory
 
 @available(iOS 14.0, *)
 class SwiftUITabBarViewFactory: NSObject, FlutterPlatformViewFactory {

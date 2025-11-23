@@ -12,13 +12,13 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
     let factory = LiquidTabBarViewFactory(messenger: registrar.messenger())
     registrar.register(factory, withId: "liquid_tabbar_minimize/native_tabbar")
 
-    // SwiftUI-based tab bar with Apple's minimize behavior (iOS 18+)
+    // SwiftUI-based tab bar (iOS 14+)
     if #available(iOS 14.0, *) {
       let swiftUIFactory = SwiftUITabBarViewFactory(messenger: registrar.messenger())
       registrar.register(swiftUIFactory, withId: "liquid_tabbar_minimize/swiftui_tabbar")
     }
 
-    // Global method channel for full-screen SwiftUI presentation
+    // Global method channel
     let channel = FlutterMethodChannel(
       name: "liquid_tabbar_minimize/swiftui_presenter",
       binaryMessenger: registrar.messenger()
@@ -40,62 +40,13 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
   }
 
   private func presentSwiftUITabBar(args: Any?, result: @escaping FlutterResult) {
-    // iOS 26 öncesinde de izin ver (minimize yok)
-    guard #available(iOS 18.0, *) else {
-      result(FlutterError(code: "unavailable", message: "Requires iOS 18+.", details: nil))
+    // iOS 14+ için basic support
+    guard #available(iOS 14.0, *) else {
+      result(FlutterError(code: "unavailable", message: "Requires iOS 14+.", details: nil))
       return
     }
-    let windowScene = UIApplication.shared.connectedScenes
-      .compactMap { $0 as? UIWindowScene }
-      .first { $0.activationState == .foregroundActive }
-    let delegateWindow = UIApplication.shared.delegate?.window ?? nil
-    let rootWindow: UIWindow? = windowScene?.windows.first ?? delegateWindow ?? nil
-    let items = SwiftUITabBarPlatformView.parseItems(args: args)
-    let includeAction = SwiftUITabBarPlatformView.parseActionFlag(args: args)
-    let actionSymbol = SwiftUITabBarPlatformView.parseActionSymbol(args: args)
-    let selectedColor = SwiftUITabBarPlatformView.parseSelectedColor(args: args)
-    let labelVisibility = SwiftUITabBarPlatformView.parseLabelVisibility(args: args)
-    let minimizeThreshold = SwiftUITabBarPlatformView.parseMinimizeThreshold(args: args)
     
-    let rootView = SwiftUITabBarScaffold(
-      items: items,
-      includeActionTab: includeAction,
-      actionSymbol: actionSymbol,
-      selectedColor: selectedColor,
-      labelVisibility: labelVisibility,
-      onActionTap: { [weak self] in
-        self?.eventChannel?.invokeMethod("onActionTapped", arguments: nil)
-      },
-      onTabChanged: { [weak self] index in
-        self?.eventChannel?.invokeMethod("onTabChanged", arguments: index)
-      },
-      minimizeThreshold: minimizeThreshold // Son parametre
-    )
-    let hostVC = UIHostingController(rootView: rootView)
-    hostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
-    presentedSwiftUITabVC = hostVC
-
-    if #available(iOS 26.0, *) {
-      // minimize animasyonu için overlay window
-      if let scene = rootWindow?.windowScene ?? windowScene {
-        previousKeyWindow = rootWindow
-        let newWindow = UIWindow(windowScene: scene)
-        newWindow.rootViewController = hostVC
-        newWindow.windowLevel = .normal
-        newWindow.makeKeyAndVisible()
-        overlayWindow = newWindow
-        print("[SwiftUITabBar] overlay (iOS 26+) aktif")
-        result(nil)
-        return
-      }
-    }
-
-    // iOS 18–25 veya overlay başarısız
-    if let rootVC = rootWindow?.rootViewController {
-      rootVC.present(hostVC, animated: true) { result(nil) }
-    } else {
-      result(FlutterError(code: "no_root_vc", message: "Root view controller not found", details: nil))
-    }
+    result(FlutterError(code: "not_implemented", message: "Use platform view instead", details: nil))
   }
 
   private func dismissSwiftUITabBar(result: @escaping FlutterResult) {

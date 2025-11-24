@@ -52,6 +52,17 @@ class LiquidBottomNavigationBar extends StatefulWidget {
        assert(itemCounts == null || itemCounts.length == pages.length);
 
   static final GlobalKey<_CustomLiquidBarState> barKey = GlobalKey();
+  static _LiquidBottomNavigationBarState? _nativeState;
+
+  static void handleScroll(double offset, double delta) {
+    final customState = barKey.currentState;
+    if (customState != null) {
+      customState.handleScroll(offset, delta);
+      return;
+    }
+
+    _nativeState?._sendScrollToNative(offset, delta);
+  }
 
   @override
   State<LiquidBottomNavigationBar> createState() =>
@@ -62,10 +73,13 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   bool _useNative = false;
   bool _isChecking = true;
   MethodChannel? _eventChannel;
+  MethodChannel? _scrollChannel;
+  int? _platformViewId;
 
   @override
   void initState() {
     super.initState();
+    LiquidBottomNavigationBar._nativeState = this;
     _checkIOSVersion();
     _setupEventChannel();
   }
@@ -88,6 +102,9 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
 
   @override
   void dispose() {
+    if (LiquidBottomNavigationBar._nativeState == this) {
+      LiquidBottomNavigationBar._nativeState = null;
+    }
     _eventChannel?.setMethodCallHandler(null);
     super.dispose();
   }
@@ -117,28 +134,75 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       return const SizedBox.shrink();
     }
 
-    if (_useNative && Platform.isIOS) {
+    if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
+      return _CustomLiquidBar(
+        key: LiquidBottomNavigationBar.barKey,
+        currentIndex: widget.currentIndex,
+        onTap: widget.onTap,
+        items: widget.items,
+        showActionButton: widget.showActionButton,
+        actionIcon: widget.actionIcon?.$1,
+        onActionTap: widget.onActionTap,
+        height: widget.height,
+        selectedItemColor: widget.selectedItemColor,
+        unselectedItemColor: widget.unselectedItemColor,
+        labelVisibility: widget.labelVisibility,
+        minimizeThreshold: widget.minimizeThreshold,
+      );
+    }
+
+    if (_useNative && Theme.of(context).platform == TargetPlatform.iOS) {
       final theme = Theme.of(context);
       final actionSFSymbol = widget.actionIcon?.$2 ?? 'magnifyingglass';
       final selectedColor =
           widget.selectedItemColor ?? theme.colorScheme.primary;
 
-      return _NativeTabBarWrapper(
-        currentIndex: widget.currentIndex,
-        onTap: widget.onTap,
-        items: widget.items,
-        showActionButton: widget.showActionButton,
-        actionSFSymbol: actionSFSymbol,
-        onActionTap: widget.onActionTap,
-        height: widget.height,
-        selectedItemColor: selectedColor,
-        unselectedItemColor: widget.unselectedItemColor ?? Colors.grey,
-        sfSymbolMapper: widget.sfSymbolMapper ?? (icon) => 'circle.fill',
-        labelVisibility: widget.labelVisibility,
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: IndexedStack(
+              index: widget.currentIndex,
+              children: widget.pages,
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              color:
+                  Colors.transparent, // Ekstra beyaz layer olmaması için önemli
+              height: widget.height + MediaQuery.of(context).padding.bottom,
+              child: UiKitView(
+                viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
+                onPlatformViewCreated: (id) {
+                  _platformViewId = id;
+                  _scrollChannel = MethodChannel(
+                    'liquid_tabbar_minimize/scroll_$id',
+                  );
+                },
+                creationParams: {
+                  'labels': widget.items.map((e) => e.label ?? '').toList(),
+                  'sfSymbols': widget.items.map((e) {
+                    final iconData = (e.icon as Icon).icon!;
+                    return widget.sfSymbolMapper?.call(iconData) ??
+                        'circle.fill';
+                  }).toList(),
+                  'initialIndex': widget.currentIndex,
+                  'enableActionTab': widget.showActionButton,
+                  'actionSymbol': actionSFSymbol,
+                  'selectedColorHex':
+                      '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                  'labelVisibility': widget.labelVisibility.name,
+                },
+                creationParamsCodec: const StandardMessageCodec(),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
-    // Custom bar
     return _CustomLiquidBar(
       key: LiquidBottomNavigationBar.barKey,
       currentIndex: widget.currentIndex,
@@ -154,61 +218,21 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       minimizeThreshold: widget.minimizeThreshold,
     );
   }
-}
 
-// Native tab bar wrapper
-class _NativeTabBarWrapper extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int>? onTap;
-  final List<BottomNavigationBarItem> items;
-  final bool showActionButton;
-  final String actionSFSymbol;
-  final VoidCallback? onActionTap;
-  final double height;
-  final Color selectedItemColor;
-  final Color unselectedItemColor;
-  final String Function(IconData) sfSymbolMapper;
-  final LabelVisibility labelVisibility;
-
-  const _NativeTabBarWrapper({
-    required this.currentIndex,
-    required this.onTap,
-    required this.items,
-    required this.showActionButton,
-    required this.actionSFSymbol,
-    required this.onActionTap,
-    required this.height,
-    required this.selectedItemColor,
-    required this.unselectedItemColor,
-    required this.sfSymbolMapper,
-    required this.labelVisibility,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      height: height + safeAreaBottom,
-      padding: EdgeInsets.only(bottom: safeAreaBottom),
-      child: UiKitView(
-        viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
-        creationParams: {
-          'labels': items.map((e) => e.label ?? '').toList(),
-          'sfSymbols': items.map((e) {
-            final iconData = (e.icon as Icon).icon!;
-            return sfSymbolMapper(iconData);
-          }).toList(),
-          'initialIndex': currentIndex,
-          'enableActionTab': showActionButton, // 5. tab olarak ekle
-          'actionSymbol': actionSFSymbol,
-          'selectedColorHex':
-              '#${selectedItemColor.value.toRadixString(16).padLeft(8, '0')}',
-          'labelVisibility': labelVisibility.name,
-        },
-        creationParamsCodec: const StandardMessageCodec(),
-      ),
-    );
+  void _sendScrollToNative(double offset, double delta) {
+    if (_scrollChannel == null) {
+      debugPrint('⚠️ Scroll channel not ready yet');
+      return;
+    }
+    _scrollChannel!
+        .invokeMethod('onScroll', {
+          'offset': offset,
+          'delta': delta,
+          'threshold': widget.minimizeThreshold,
+        })
+        .catchError((error) {
+          debugPrint('❌ Send scroll error: $error');
+        });
   }
 }
 

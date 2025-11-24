@@ -62,10 +62,13 @@ class _HomePageState extends State<HomePage> {
     final offset = controller.offset;
     final delta = offset - _lastScrollOffset;
 
-    final barState = LiquidBottomNavigationBar.barKey.currentState;
-    barState?.handleScroll(offset, delta);
+    _handleScroll(offset, delta);
 
     _lastScrollOffset = offset;
+  }
+
+  void _handleScroll(double offset, double delta) {
+    LiquidBottomNavigationBar.handleScroll(offset, delta);
   }
 
   // iOS 26+ SF Symbol mapping
@@ -359,7 +362,7 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.grey,
         labelVisibility: LabelVisibility.always,
         height: 68,
-        forceCustomBar: false,
+        forceCustomBar: false, // Native kalsın
       ),
     );
   }

@@ -20,8 +20,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
-  liquid_tabbar_minimize: c8b5f275a671a06a0b14fa71e771b6fca1d734cf
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+  liquid_tabbar_minimize: f77268d1bba4503c8fccce45bb2c90638b6ed1b8
 
 PODFILE CHECKSUM: 3ba3a73b1b12adcf321a227a745625fe0888cc82
 

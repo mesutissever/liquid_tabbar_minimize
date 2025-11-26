@@ -75,6 +75,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   MethodChannel? _eventChannel;
   MethodChannel? _scrollChannel;
   int? _platformViewId;
+  double _lastScrollOffset = 0.0;
 
   @override
   void initState() {
@@ -121,11 +122,17 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       return;
     }
 
+    // iOS 26+ native; diğerlerinde custom
+    final match = RegExp(r'(\\d+)').firstMatch(Platform.operatingSystemVersion);
+    final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
+    final canUseNative = major >= 26;
+
     setState(() {
-      _useNative = false;
+      _useNative = canUseNative;
       _isChecking = false;
     });
-    widget.onNativeDetected?.call(false);
+    widget.onNativeDetected?.call(canUseNative);
+    debugPrint('iOS version: $major, native tabbar: $canUseNative');
   }
 
   @override
@@ -157,49 +164,59 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       final selectedColor =
           widget.selectedItemColor ?? theme.colorScheme.primary;
 
-      return Stack(
-        children: [
-          Positioned.fill(
-            child: IndexedStack(
-              index: widget.currentIndex,
-              children: widget.pages,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              color:
-                  Colors.transparent, // Ekstra beyaz layer olmaması için önemli
-              height: widget.height + MediaQuery.of(context).padding.bottom,
-              child: UiKitView(
-                viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
-                onPlatformViewCreated: (id) {
-                  _platformViewId = id;
-                  _scrollChannel = MethodChannel(
-                    'liquid_tabbar_minimize/scroll_$id',
-                  );
-                },
-                creationParams: {
-                  'labels': widget.items.map((e) => e.label ?? '').toList(),
-                  'sfSymbols': widget.items.map((e) {
-                    final iconData = (e.icon as Icon).icon!;
-                    return widget.sfSymbolMapper?.call(iconData) ??
-                        'circle.fill';
-                  }).toList(),
-                  'initialIndex': widget.currentIndex,
-                  'enableActionTab': widget.showActionButton,
-                  'actionSymbol': actionSFSymbol,
-                  'selectedColorHex':
-                      '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
-                  'labelVisibility': widget.labelVisibility.name,
-                },
-                creationParamsCodec: const StandardMessageCodec(),
+      return NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            final current = notification.metrics.pixels;
+            final delta = current - _lastScrollOffset;
+            _lastScrollOffset = current;
+            _sendScrollToNative(current, delta);
+          }
+          return false;
+        },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IndexedStack(
+                index: widget.currentIndex,
+                children: widget.pages,
               ),
             ),
-          ),
-        ],
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                color: Colors.transparent,
+                height: widget.height + MediaQuery.of(context).padding.bottom,
+                child: UiKitView(
+                  viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
+                  onPlatformViewCreated: (id) {
+                    _platformViewId = id;
+                    _scrollChannel = MethodChannel(
+                      'liquid_tabbar_minimize/scroll_$id',
+                    );
+                  },
+                  creationParams: {
+                    'labels': widget.items.map((e) => e.label ?? '').toList(),
+                    'sfSymbols': widget.items.map((e) {
+                      final iconData = (e.icon as Icon).icon!;
+                      return widget.sfSymbolMapper?.call(iconData) ??
+                          'circle.fill';
+                    }).toList(),
+                    'initialIndex': widget.currentIndex,
+                    'enableActionTab': widget.showActionButton,
+                    'actionSymbol': actionSFSymbol,
+                    'selectedColorHex':
+                        '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                    'labelVisibility': widget.labelVisibility.name,
+                  },
+                  creationParamsCodec: const StandardMessageCodec(),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 

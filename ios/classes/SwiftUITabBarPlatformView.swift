@@ -19,22 +19,41 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var scrollChannel: FlutterMethodChannel?
     private weak var tabBarController: UITabBarController?
     private var isMinimized = false
+
+    // Ana wrapper
     private weak var tabBarWrapper: UIView?
-    private var expandedConstraints: [NSLayoutConstraint] = []
-    private var collapsedConstraints: [NSLayoutConstraint] = []
+
+    // Taban (sabit) kısıtlar
     private var baseConstraints: [NSLayoutConstraint] = []
+
+    // Leading/trailing’i ayrı ayrı saklayalım ki modlar arasında değiştirebilelim.
+    private var expandedLeading: NSLayoutConstraint?
+    private var expandedTrailing: NSLayoutConstraint?
+    private var collapsedLeading: NSLayoutConstraint?
+    private var collapsedTrailing: NSLayoutConstraint?
+
+    // TabBarController.view kısıtları
+    private var tabViewLeading: NSLayoutConstraint?
+    private var tabViewTrailing: NSLayoutConstraint?
+    private var tabViewTop: NSLayoutConstraint?
+    private var tabViewBottom: NSLayoutConstraint?
+    private var tabViewCollapsedWidth: NSLayoutConstraint?
+
+    // Orijinal UITabBar ayarları
     private var originalItemWidth: CGFloat?
     private var originalItemSpacing: CGFloat?
     private var originalItemPositioningRaw: Int?
+
+    // Orijinal durum
     private var originalViewControllers: [UIViewController]?
     private var originalTitlesByTag: [Int: String?] = [:]
     private var originalTitleAttrsNormal: [NSAttributedString.Key: Any] = [:]
     private var originalTitleAttrsSelected: [NSAttributedString.Key: Any] = [:]
     private var originalAppearance: UITabBarAppearance?
-    private weak var collapsedView: UIVisualEffectView?
-    private weak var collapsedIconView: UIImageView?
     private var selectedTintColor: UIColor = .systemBlue
-    private let collapsedSize: CGFloat = 105
+    private var savedSelectedTag: Int?
+
+    private var originalTabBarItems: [UITabBarItem]?
 
     init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
         container = UIView(frame: frame)
@@ -62,6 +81,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 result(FlutterMethodNotImplemented)
                 return
             }
+            print("SCROLL iOS offset=\(offset) delta=\(delta) thr=\(threshold) isMin=\(self?.isMinimized ?? false)")
             self?.handleScroll(offset: offset, delta: delta, threshold: threshold)
             result(nil)
         }
@@ -95,6 +115,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         if includeAction {
             let actionVC = UIViewController()
             actionVC.view.backgroundColor = .clear
+            actionVC.view.isOpaque = false
             actionVC.tabBarItem = UITabBarItem(
                 title: nil,
                 image: UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol),
@@ -109,9 +130,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         }
         originalViewControllers = controllers
         if let items = tabController.tabBar.items {
-            for item in items {
-                originalTitlesByTag[item.tag] = item.title
-            }
+            for item in items { originalTitlesByTag[item.tag] = item.title }
         }
 
         let tabBar = tabController.tabBar
@@ -126,24 +145,20 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             appearance.configureWithTransparentBackground()
             appearance.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
             appearance.backgroundColor = UIColor.black.withAlphaComponent(0.15)
+            let stacked = appearance.stackedLayoutAppearance
+            originalTitleAttrsNormal = stacked.normal.titleTextAttributes
+            originalTitleAttrsSelected = stacked.selected.titleTextAttributes
             tabBar.standardAppearance = appearance
             tabBar.scrollEdgeAppearance = appearance
+            originalAppearance = appearance.copy() as? UITabBarAppearance
         }
 
         tabBar.layer.cornerRadius = 24
         tabBar.clipsToBounds = true
-        // Kaybolan etiketleri geri getirebilmek için başlangıç title attr'larını sakla
-        if #available(iOS 15.0, *) {
-            let stacked = tabBar.standardAppearance.stackedLayoutAppearance
-            originalTitleAttrsNormal = stacked.normal.titleTextAttributes
-            originalTitleAttrsSelected = stacked.selected.titleTextAttributes
-            originalAppearance = tabBar.standardAppearance.copy() as? UITabBarAppearance
-        }
 
         tabController.view.translatesAutoresizingMaskIntoConstraints = false
         tabController.view.backgroundColor = .clear
 
-        // ÖNCE tabController'ı hierarchy'ye ekle
         if let parent = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap({ $0.windows })
@@ -151,67 +166,53 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             .rootViewController {
 
             parent.addChild(tabController)
-            
-            // Wrapper view for tab bar animation
+
+            // Ana wrapper
             let wrapper = UIView()
             wrapper.backgroundColor = .clear
             wrapper.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(wrapper)
+            tabBarWrapper = wrapper
+
+            // Başlangıçta tab bar full genişlikte wrapper’a eklenecek
             wrapper.addSubview(tabController.view)
-            
-            let leading = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
-            let trailing = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
+
+            // Expanded (normal) kenar boşlukları: 16 / 16
+            let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
+            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
+            // Collapsed (minimized) kenar boşlukları: solda 16, sağda 28
+            let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
+            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -28)
+
             let bottom = wrapper.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor, constant: -8)
-            // Yükseklik collapsedSize ile eşitlenirse daraltmada gerçek bir daire korunur
-            let height = wrapper.heightAnchor.constraint(equalToConstant: collapsedSize)
-            let collapsedWidth = wrapper.widthAnchor.constraint(equalToConstant: collapsedSize)
+            let height = wrapper.heightAnchor.constraint(equalTo: tabController.tabBar.heightAnchor)
 
-            // Çökük durumda gösterilecek blur kapsül + ikon
-            let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialDark))
-            blur.translatesAutoresizingMaskIntoConstraints = false
-            blur.layer.cornerRadius = collapsedSize / 2
-            blur.clipsToBounds = true
-            blur.isHidden = true
-            blur.layer.borderColor = UIColor.white.withAlphaComponent(0.08).cgColor
-            blur.layer.borderWidth = 1
-            blur.layer.shadowColor = UIColor.black.cgColor
-            blur.layer.shadowOpacity = 0.25
-            blur.layer.shadowRadius = 8
-            blur.layer.shadowOffset = CGSize(width: 0, height: 6)
-
-            let iconView = UIImageView()
-            iconView.translatesAutoresizingMaskIntoConstraints = false
-            iconView.contentMode = .center
-            iconView.tintColor = selectedTintColor
-            blur.contentView.addSubview(iconView)
-
-            wrapper.addSubview(blur)
+            // TabController.view kısıtları
+            let tabLead = tabController.view.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor)
+            let tabTrail = tabController.view.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor)
+            let tabTop   = tabController.view.topAnchor.constraint(equalTo: wrapper.topAnchor)
+            let tabBot   = tabController.view.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor)
 
             NSLayoutConstraint.activate([
                 bottom,
                 height,
-                
-                tabController.view.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor),
-                tabController.view.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor),
-                tabController.view.topAnchor.constraint(equalTo: wrapper.topAnchor),
-                tabController.view.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor),
-
-                blur.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor),
-                blur.centerYAnchor.constraint(equalTo: wrapper.centerYAnchor),
-                blur.widthAnchor.constraint(equalToConstant: collapsedSize),
-                blur.heightAnchor.constraint(equalToConstant: collapsedSize),
-
-                iconView.centerXAnchor.constraint(equalTo: blur.centerXAnchor),
-                iconView.centerYAnchor.constraint(equalTo: blur.centerYAnchor),
+                tabLead, tabTrail, tabTop, tabBot
             ])
-            
-            tabBarWrapper = wrapper
+
             baseConstraints = [bottom, height]
-            expandedConstraints = [leading, trailing]
-            collapsedConstraints = [leading, collapsedWidth]
-            collapsedView = blur
-            collapsedIconView = iconView
-            NSLayoutConstraint.activate(baseConstraints + expandedConstraints)
+            expandedLeading = leadExp
+            expandedTrailing = trailExp
+            collapsedLeading = leadCol
+            collapsedTrailing = trailCol
+
+            tabViewLeading = tabLead
+            tabViewTrailing = tabTrail
+            tabViewTop = tabTop
+            tabViewBottom = tabBot
+
+            // Başlangıçta expanded aktif
+            NSLayoutConstraint.activate(baseConstraints + [leadExp, trailExp])
+
             tabController.didMove(toParent: parent)
         }
 
@@ -219,11 +220,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         self.originalItemWidth = tabController.tabBar.itemWidth
         self.originalItemSpacing = tabController.tabBar.itemSpacing
         self.originalItemPositioningRaw = tabController.tabBar.itemPositioning.rawValue
+        self.originalTabBarItems = tabController.tabBar.items
     }
 
     func view() -> UIView { container }
 
-    // Scroll'dan gelen manual minimize
     private func handleScroll(offset: Double, delta: Double, threshold: Double) {
         guard let wrapper = tabBarWrapper else { return }
         let pixelThreshold = threshold * 1000.0
@@ -238,166 +239,202 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     }
 
     private func collapseTabBar(_ wrapper: UIView) {
-        guard let tabBar = tabBarController?.tabBar else { return }
+        guard !isMinimized, let tbc = tabBarController, let wrapperView = tabBarWrapper else { return }
+        print("COLLAPSE iOS")
         isMinimized = true
-        NSLayoutConstraint.deactivate(expandedConstraints)
-        NSLayoutConstraint.activate(baseConstraints + collapsedConstraints)
 
-        // Yalnızca seçili buton açık, diğerlerini gizle
-        let selectedItem = tabBar.selectedItem ?? tabBarController?.selectedViewController?.tabBarItem
-        let selectedTag = selectedItem?.tag
-        // Tab bar controller'daki diğer VC'leri geçici kaldır
-        if originalViewControllers == nil {
-            originalViewControllers = tabBarController?.viewControllers
-        }
-        if let selectedVC = tabBarController?.selectedViewController {
-            tabBarController?.viewControllers = [selectedVC]
+        // Kenar boşluklarını collapsed moda geçir
+        if let leadExp = expandedLeading, let trailExp = expandedTrailing,
+           let leadCol = collapsedLeading, let trailCol = collapsedTrailing {
+            NSLayoutConstraint.deactivate([leadExp, trailExp])
+            NSLayoutConstraint.activate(baseConstraints + [leadCol, trailCol])
         }
 
-        var anyShown = false
-        for subview in tabBar.subviews {
-            guard let control = subview as? UIControl,
-                  let item = control.value(forKey: "item") as? UITabBarItem else { continue }
-            let isSelected = (selectedItem != nil && item === selectedItem) || (selectedTag != nil && item.tag == selectedTag)
-            control.isHidden = !isSelected
-            control.alpha = isSelected ? 1.0 : 0.0
-            if isSelected {
-                tabBar.bringSubviewToFront(control)
-            }
-            anyShown = anyShown || isSelected
-        }
-        if !anyShown {
-            for subview in tabBar.subviews {
-                if let control = subview as? UIControl {
-                    control.isHidden = false
-                    control.alpha = 1.0
-                }
-            }
+        applyCollapsedAppearance(to: tbc.tabBar)
+
+        // Seçili tag’i sakla
+        let currentTag = tbc.selectedViewController?.tabBarItem.tag
+        savedSelectedTag = currentTag
+
+        // Sadece seçili VC kalsın
+        if let list = originalViewControllers, let tag = currentTag,
+           let selIndex = list.firstIndex(where: { $0.tabBarItem.tag == tag }) {
+            let selectedVC = list[selIndex]
+            tbc.setViewControllers([selectedVC], animated: false)
+            tbc.selectedIndex = 0
         }
 
-        // Başlıkları sakla ama görünür kalsın (etiketleri gizlemiyoruz)
-        tabBar.items?.forEach { item in
-            originalTitlesByTag[item.tag] = item.title
+        // Tab bar’ı aynı wrapper içinde daralt
+        tabViewTrailing?.isActive = false
+        if tabViewCollapsedWidth == nil {
+            tabViewCollapsedWidth = tbc.view.widthAnchor.constraint(equalToConstant: 76)
         }
-        // Layout değerlerini değiştirme, native kalsın
-        tabBar.isHidden = false
-        tabBar.alpha = 1.0
-        tabBar.isUserInteractionEnabled = true
-        collapsedView?.isHidden = true
-        collapsedView?.alpha = 0.0
+        tabViewCollapsedWidth?.isActive = true
+
+        // Solda konumlamak için
+        tbc.tabBar.itemPositioning = .fill
+        tbc.tabBar.itemWidth = 52
+        tbc.tabBar.itemSpacing = 0
+
+        tbc.tabBar.setNeedsUpdateConstraints()
+        tbc.tabBar.setNeedsLayout()
+        tbc.tabBar.layoutIfNeeded()
+        wrapperView.setNeedsLayout()
+        container.setNeedsLayout()
 
         UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-            wrapper.alpha = 0.9
-            tabBar.layoutIfNeeded()
+            tbc.tabBar.layer.cornerRadius = 28
+            wrapperView.alpha = 1.0
+            wrapperView.layoutIfNeeded()
             self.container.layoutIfNeeded()
         }
     }
 
     private func expandTabBar(_ wrapper: UIView) {
-        guard isMinimized, let tabBar = tabBarController?.tabBar else { return }
+        guard isMinimized, let tbc = tabBarController, let wrapperView = tabBarWrapper else { return }
+        print("EXPAND iOS")
         isMinimized = false
-        NSLayoutConstraint.deactivate(collapsedConstraints)
-        NSLayoutConstraint.activate(baseConstraints + expandedConstraints)
 
-        for subview in tabBar.subviews {
-            if String(describing: type(of: subview)) == "UITabBarButton" {
-                subview.isHidden = false
-                subview.alpha = 1.0
+        // Kenar boşluklarını expanded moda döndür
+        if let leadExp = expandedLeading, let trailExp = expandedTrailing,
+           let leadCol = collapsedLeading, let trailCol = collapsedTrailing {
+            NSLayoutConstraint.deactivate([leadCol, trailCol])
+            NSLayoutConstraint.activate(baseConstraints + [leadExp, trailExp])
+        }
+
+        // Genişliği tekrar wrapper’a yay
+        tabViewCollapsedWidth?.isActive = false
+        tabViewTrailing?.isActive = true
+
+        // Tüm VC’leri geri yükle (tam reset için önce boşaltıp sonra koy)
+        if let original = originalViewControllers {
+            tbc.setViewControllers([], animated: false)
+            tbc.setViewControllers(original, animated: false)
+        }
+
+        if let tag = savedSelectedTag, let list = tbc.viewControllers,
+           let idx = list.firstIndex(where: { $0.tabBarItem.tag == tag }) {
+            tbc.selectedIndex = idx
+        }
+
+        // Yerleşimi otomatik moda döndür
+        tbc.tabBar.itemPositioning = .automatic
+        tbc.tabBar.itemWidth = 0
+        tbc.tabBar.itemSpacing = 0
+
+        // Görünümü (başlıkları görünür kılacak şekilde) geri yükle
+        restoreAppearance(on: tbc.tabBar)
+
+        // Emniyet: başlık konumu/başlık metni reset
+        tbc.tabBar.items?.forEach { item in
+            item.titlePositionAdjustment = .zero
+            if let saved = originalTitlesByTag[item.tag] {
+                item.title = saved
             }
         }
-        // Blur kapsülü gizle, tab bar'ı geri aç
-        collapsedView?.isHidden = true
-        collapsedView?.alpha = 0.0
-        tabBar.isHidden = false
-        tabBar.alpha = 1.0
-        tabBar.isUserInteractionEnabled = true
 
-        if let raw = originalItemPositioningRaw,
-           let positioning = UITabBar.ItemPositioning(rawValue: raw) {
-            tabBar.itemPositioning = positioning
-        } else {
-            tabBar.itemPositioning = .automatic
-        }
-        if let width = originalItemWidth { tabBar.itemWidth = width }
-        if let spacing = originalItemSpacing { tabBar.itemSpacing = spacing }
-        if let originals = originalViewControllers {
-            tabBarController?.viewControllers = originals
-        }
-        restoreAppearance(on: tabBar)
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn]) {
-            wrapper.alpha = 1.0
-            tabBar.layoutIfNeeded()
+        // Önce layout’u tetikle
+        tbc.tabBar.setNeedsUpdateConstraints()
+        tbc.tabBar.setNeedsLayout()
+        tbc.tabBar.layoutIfNeeded()
+        wrapperView.setNeedsLayout()
+        container.setNeedsLayout()
+
+        // Animasyon: önce expand görseli tamamlansın
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn], animations: {
+            tbc.tabBar.layer.cornerRadius = 24
+            wrapperView.alpha = 1.0
+            wrapperView.layoutIfNeeded()
             self.container.layoutIfNeeded()
-        } completion: { _ in
-            // Tüm item'ların başlıklarını geri yükle
-            tabBar.items?.forEach { item in
-                if let saved = self.originalTitlesByTag[item.tag] {
-                    item.title = saved
+        }, completion: { _ in
+            // Animasyon BİTTİKTEN sonra reselection ve otomatik yerleşimi zorlama
+            if let vcs = tbc.viewControllers {
+                let savedIdx = tbc.selectedIndex
+                let savedDelegate = tbc.delegate
+                tbc.delegate = nil
+                for i in 0..<vcs.count {
+                    tbc.selectedIndex = i
                 }
-                item.titlePositionAdjustment = .zero
-                item.setTitleTextAttributes(
-                    self.originalTitleAttrsNormal.isEmpty ? [.foregroundColor: UIColor.label] : self.originalTitleAttrsNormal,
-                    for: .normal
-                )
-                item.setTitleTextAttributes(
-                    self.originalTitleAttrsSelected.isEmpty ? [.foregroundColor: self.selectedTintColor] : self.originalTitleAttrsSelected,
-                    for: .selected
-                )
+                tbc.selectedIndex = savedIdx
+                tbc.delegate = savedDelegate
             }
-            tabBar.setNeedsLayout()
-            tabBar.layoutIfNeeded()
-        }
+
+            DispatchQueue.main.async {
+                tbc.tabBar.itemPositioning = .automatic
+                tbc.tabBar.itemWidth = 0
+                tbc.tabBar.itemSpacing = 0
+                tbc.tabBar.setNeedsLayout()
+                tbc.tabBar.layoutIfNeeded()
+            }
+        })
     }
 
+    // Collapse: Başlığı title="" ile gizle (appearance cache sorunlarını atlatır)
     private func applyCollapsedAppearance(to tabBar: UITabBar) {
         if #available(iOS 15.0, *) {
-            let appearance = tabBar.standardAppearance.copy() as! UITabBarAppearance
-            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
-            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
-            appearance.stackedLayoutAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 30)
-            appearance.stackedLayoutAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 30)
-            appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
-            appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
+            let appearance = (originalAppearance ?? tabBar.standardAppearance).copy() as! UITabBarAppearance
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
+            appearance.backgroundColor = UIColor.black.withAlphaComponent(0.22)
             tabBar.standardAppearance = appearance
             tabBar.scrollEdgeAppearance = appearance
-        } else {
-            tabBar.items?.forEach { item in
-                item.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 30)
-                item.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
-                item.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .selected)
+        }
+        // Tüm item’ların başlığını boşalt
+        tabBar.items?.forEach { item in
+            if originalTitlesByTag[item.tag] == nil {
+                originalTitlesByTag[item.tag] = item.title
             }
+            item.title = ""
         }
     }
 
+    // Expand: Başlığı geri yükle ve görünür renk/offset ver
     private func restoreAppearance(on tabBar: UITabBar) {
         if #available(iOS 15.0, *) {
-            if let original = originalAppearance {
-                tabBar.standardAppearance = original
-                tabBar.scrollEdgeAppearance = original
-            } else {
-                let appearance = UITabBarAppearance()
-                appearance.configureWithDefaultBackground()
-                tabBar.standardAppearance = appearance
-                tabBar.scrollEdgeAppearance = appearance
+            let base = (originalAppearance ?? UITabBarAppearance())
+            let ap = base.copy() as! UITabBarAppearance
+
+            // Arka plan stili
+            if base.backgroundEffect == nil && base.backgroundColor == nil {
+                ap.configureWithTransparentBackground()
+                ap.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
+                ap.backgroundColor = UIColor.black.withAlphaComponent(0.15)
             }
+
+            // Başlıkları görünür kıl
+            var normalAttrs = ap.stackedLayoutAppearance.normal.titleTextAttributes
+            var selectedAttrs = ap.stackedLayoutAppearance.selected.titleTextAttributes
+            normalAttrs[.foregroundColor] = UIColor.label
+            selectedAttrs[.foregroundColor] = selectedTintColor
+            ap.stackedLayoutAppearance.normal.titleTextAttributes = normalAttrs
+            ap.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttrs
+            ap.stackedLayoutAppearance.normal.titlePositionAdjustment = .zero
+            ap.stackedLayoutAppearance.selected.titlePositionAdjustment = .zero
+
+            // Landscape eşitle
+            ap.inlineLayoutAppearance = ap.stackedLayoutAppearance
+            ap.compactInlineLayoutAppearance = ap.stackedLayoutAppearance
+
+            tabBar.standardAppearance = ap
+            tabBar.scrollEdgeAppearance = ap
+
+            tabBar.unselectedItemTintColor = UIColor.label.withAlphaComponent(0.7)
         } else {
             tabBar.items?.forEach { item in
-                if let saved = originalTitlesByTag[item.tag] {
-                    item.title = saved
-                }
                 item.titlePositionAdjustment = .zero
-                item.setTitleTextAttributes(originalTitleAttrsNormal.isEmpty ? [.foregroundColor: UIColor.label] : originalTitleAttrsNormal, for: .normal)
-                item.setTitleTextAttributes(originalTitleAttrsSelected.isEmpty ? [.foregroundColor: selectedTintColor] : originalTitleAttrsSelected, for: .selected)
+                let normal = originalTitleAttrsNormal.isEmpty ? [.foregroundColor: UIColor.label] : originalTitleAttrsNormal
+                let selected = originalTitleAttrsSelected.isEmpty ? [.foregroundColor: selectedTintColor] : originalTitleAttrsSelected
+                item.setTitleTextAttributes(normal, for: .normal)
+                item.setTitleTextAttributes(selected, for: .selected)
             }
         }
-    }
 
-    // Seçili tab ikonunu blur kapsüle kopyala
-    private func updateCollapsedIcon() {
-        guard let iconView = collapsedIconView else { return }
-        let selectedItem = tabBarController?.tabBar.selectedItem ?? tabBarController?.selectedViewController?.tabBarItem
-        iconView.image = selectedItem?.image?.withRenderingMode(.alwaysTemplate)
-        iconView.tintColor = selectedTintColor
+        // Başlık metinlerini geri koy
+        tabBar.items?.forEach { item in
+            if let saved = originalTitlesByTag[item.tag] {
+                item.title = saved
+            }
+        }
     }
 
     // Tab seçimlerini Flutter'a yansıt

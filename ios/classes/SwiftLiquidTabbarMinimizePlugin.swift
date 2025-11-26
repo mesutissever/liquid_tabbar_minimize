@@ -9,9 +9,6 @@ public class SwiftLiquidTabbarMinimizePlugin: NSObject, FlutterPlugin {
   private var eventChannel: FlutterMethodChannel?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let factory = LiquidTabBarViewFactory(messenger: registrar.messenger())
-    registrar.register(factory, withId: "liquid_tabbar_minimize/native_tabbar")
-
     // SwiftUI-based tab bar (iOS 14+)
     if #available(iOS 14.0, *) {
       let swiftUIFactory = SwiftUITabBarViewFactory(messenger: registrar.messenger())

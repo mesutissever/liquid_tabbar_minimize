@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
 
 void main() => runApp(const MyApp());
@@ -27,6 +28,48 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
+  bool _isNative = false;
+
+  // Her sayfa için ayrı ScrollController
+  late final ScrollController _homeScrollController;
+  late final ScrollController _exploreScrollController;
+  late final ScrollController _favoritesScrollController;
+  late final ScrollController _settingsScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeScrollController = ScrollController()
+      ..addListener(() => _onScroll(_homeScrollController));
+    _exploreScrollController = ScrollController()
+      ..addListener(() => _onScroll(_exploreScrollController));
+    _favoritesScrollController = ScrollController()
+      ..addListener(() => _onScroll(_favoritesScrollController));
+    _settingsScrollController = ScrollController()
+      ..addListener(() => _onScroll(_settingsScrollController));
+  }
+
+  @override
+  void dispose() {
+    _homeScrollController.dispose();
+    _exploreScrollController.dispose();
+    _favoritesScrollController.dispose();
+    _settingsScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll(ScrollController controller) {
+    final offset = controller.offset;
+    final delta = offset - _lastScrollOffset;
+
+    _handleScroll(offset, delta);
+
+    _lastScrollOffset = offset;
+  }
+
+  void _handleScroll(double offset, double delta) {
+    LiquidBottomNavigationBar.handleScroll(offset, delta);
+  }
 
   // iOS 26+ SF Symbol mapping
   String _iconToSFSymbol(IconData icon) {
@@ -38,42 +81,230 @@ class _HomePageState extends State<HomePage> {
     return 'circle.fill'; // fallback
   }
 
-  static Widget _buildPageWithScroll(
-    String title,
-    Color color,
-    int count,
-    Function(double, double) onScroll,
-  ) {
+  // Her tab için özel sayfa
+  Widget _buildHomePage() {
     return Scaffold(
-      appBar: AppBar(title: Text(title), backgroundColor: color),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification) {
-            onScroll(notification.metrics.pixels, notification.metrics.pixels);
-          }
-          return false;
-        },
-        child: ListView.builder(
-          itemCount: count,
-          itemBuilder: (context, index) {
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.3),
-                child: Text('${index + 1}'),
+      appBar: AppBar(title: const Text('Home'), backgroundColor: Colors.blue),
+      body: ListView.builder(
+        controller: _homeScrollController,
+        itemCount: 20,
+        itemBuilder: (context, index) {
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: Icon(Icons.home, color: Colors.blue),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Home Item ${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Scroll to see minimize effect',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              title: Text('$title Item ${index + 1}'),
-              subtitle: const Text('Scroll to see liquid effect'),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  void _handleScroll(double offset, double delta) {
-    final barState = LiquidBottomNavigationBar.barKey.currentState;
-    barState?.handleScroll(offset, offset - _lastScrollOffset);
-    _lastScrollOffset = offset;
+  Widget _buildExplorePage() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Explore'),
+        backgroundColor: Colors.green,
+      ),
+      body: GridView.builder(
+        controller: _exploreScrollController,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 1,
+        ),
+        itemCount: 50,
+        itemBuilder: (context, index) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.green.withValues(alpha: 0.5),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.public, size: 40, color: Colors.green),
+                const SizedBox(height: 8),
+                Text(
+                  'Place ${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFavoritesPage() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Favorites'),
+        backgroundColor: Colors.orange,
+      ),
+      body: ListView.builder(
+        controller: _favoritesScrollController,
+        itemCount: 50,
+        itemBuilder: (context, index) {
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.orange.withValues(alpha: 0.3),
+              child: Icon(Icons.star, color: Colors.orange),
+            ),
+            title: Text('Favorite Item ${index + 1}'),
+            subtitle: const Text('Tap to view details'),
+            trailing: Icon(Icons.chevron_right, color: Colors.orange),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSettingsPage() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: Colors.purple,
+      ),
+      body: ListView(
+        controller: _settingsScrollController,
+        children: [
+          const SizedBox(height: 20),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.purple.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Column(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.purple,
+                  child: Icon(Icons.person, size: 40, color: Colors.white),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'John Doe',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'john.doe@example.com',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildSettingsTile(
+            Icons.notifications,
+            'Notifications',
+            'Manage notifications',
+          ),
+          _buildSettingsTile(Icons.privacy_tip, 'Privacy', 'Privacy settings'),
+          _buildSettingsTile(Icons.language, 'Language', 'Change language'),
+          _buildSettingsTile(Icons.dark_mode, 'Dark Mode', 'Toggle dark mode'),
+          _buildSettingsTile(Icons.help, 'Help & Support', 'Get help'),
+          _buildSettingsTile(Icons.info, 'About', 'App version 1.0.0'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile(IconData icon, String title, String subtitle) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.purple.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.purple),
+      ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+    );
+  }
+
+  Widget _buildSearchPage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: const Icon(Icons.search, size: 64, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Search',
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Find what you need',
+            style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -83,29 +314,18 @@ class _HomePageState extends State<HomePage> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          _buildPageWithScroll('Home', Colors.blue, 12, _handleScroll),
-          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
-          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
-          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'Search',
-                  style: TextStyle(fontSize: 24, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
+          _buildHomePage(),
+          _buildExplorePage(),
+          _buildFavoritesPage(),
+          _buildSettingsPage(),
+          _buildSearchPage(),
         ],
       ),
       bottomNavigationBar: LiquidBottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() => _selectedIndex = index);
+          _lastScrollOffset = 0;
           debugPrint('Tab index: $index');
         },
         items: const [
@@ -117,27 +337,32 @@ class _HomePageState extends State<HomePage> {
             label: 'Settings',
           ),
         ],
-        pages: [
-          _buildPageWithScroll('Home', Colors.blue, 10, _handleScroll),
-          _buildPageWithScroll('Explore', Colors.green, 50, _handleScroll),
-          _buildPageWithScroll('Favorites', Colors.orange, 50, _handleScroll),
-          _buildPageWithScroll('Settings', Colors.purple, 50, _handleScroll),
-        ],
-        itemCounts: const [12, 50, 50, 50], // Item counts for iOS 26+ native
+        pages: [Container(), Container(), Container(), Container()],
         sfSymbolMapper: _iconToSFSymbol,
-        showActionButton: true,
-        actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+        showActionButton: false, // TESTİ İÇİN KAPATALIM
+        actionIcon: (
+          const Icon(Icons.search, size: 0, color: Colors.transparent),
+          'magnifyingglass',
+        ),
         onActionTap: () {
           debugPrint('Search tapped!');
-          setState(() => _selectedIndex = 4);
+          setState(() {
+            _selectedIndex = 4;
+            _lastScrollOffset = 0;
+          });
+        },
+        onNativeDetected: (isNative) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() => _isNative = isNative);
+          });
+          debugPrint('Native tab bar: $isNative');
+          debugPrint('iOS version: ${Platform.operatingSystemVersion}');
         },
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         labelVisibility: LabelVisibility.always,
         height: 68,
-        minimizeThreshold: 0.1, // Minimize after 100px scroll
-        forceCustomBar:
-            false, // Use custom bar even on iOS 26+ (for threshold control)
+        forceCustomBar: false, // Native kalsın
       ),
     );
   }

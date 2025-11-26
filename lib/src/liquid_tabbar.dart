@@ -51,6 +51,7 @@ class _LiquidTabBarState extends State<LiquidTabBar> {
         if (match != null) {
           final major = int.tryParse(match.group(1) ?? '0') ?? 0;
           if (major >= 26) {
+            // iOS 26+ için native
             setState(() {
               _useNativeTabBar = true;
               _isCheckingVersion = false;

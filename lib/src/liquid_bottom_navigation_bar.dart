@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'liquid_tab_item.dart';
 
 /// Label visibility mode
@@ -51,6 +52,17 @@ class LiquidBottomNavigationBar extends StatefulWidget {
        assert(itemCounts == null || itemCounts.length == pages.length);
 
   static final GlobalKey<_CustomLiquidBarState> barKey = GlobalKey();
+  static _LiquidBottomNavigationBarState? _nativeState;
+
+  static void handleScroll(double offset, double delta) {
+    final customState = barKey.currentState;
+    if (customState != null) {
+      customState.handleScroll(offset, delta);
+      return;
+    }
+
+    _nativeState?._sendScrollToNative(offset, delta);
+  }
 
   @override
   State<LiquidBottomNavigationBar> createState() =>
@@ -60,34 +72,67 @@ class LiquidBottomNavigationBar extends StatefulWidget {
 class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   bool _useNative = false;
   bool _isChecking = true;
+  MethodChannel? _eventChannel;
+  MethodChannel? _scrollChannel;
+  int? _platformViewId;
+  double _lastScrollOffset = 0.0;
 
   @override
   void initState() {
     super.initState();
+    LiquidBottomNavigationBar._nativeState = this;
     _checkIOSVersion();
+    _setupEventChannel();
+  }
+
+  void _setupEventChannel() {
+    _eventChannel = const MethodChannel('liquid_tabbar_minimize/events');
+    _eventChannel!.setMethodCallHandler(_handleNativeEvents);
+  }
+
+  Future<void> _handleNativeEvents(MethodCall call) async {
+    if (call.method == 'onTabChanged') {
+      final index = call.arguments as int;
+      if (index >= 0 && index < widget.items.length) {
+        widget.onTap?.call(index);
+      }
+    } else if (call.method == 'onActionTapped') {
+      widget.onActionTap?.call();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (LiquidBottomNavigationBar._nativeState == this) {
+      LiquidBottomNavigationBar._nativeState = null;
+    }
+    _eventChannel?.setMethodCallHandler(null);
+    super.dispose();
   }
 
   Future<void> _checkIOSVersion() async {
-    if (Platform.isIOS) {
-      try {
-        final version = Platform.operatingSystemVersion;
-        final match = RegExp(r'Version (\d+)\.').firstMatch(version);
-        if (match != null) {
-          final major = int.tryParse(match.group(1) ?? '0') ?? 0;
-          setState(() {
-            _useNative = major >= 26;
-            _isChecking = false;
-          });
-          return;
-        }
-      } catch (e) {
-        debugPrint('iOS version check failed: $e');
-      }
+    // TEST: iOS'ta her zaman native kullan
+    if (!widget.forceCustomBar && Platform.isIOS) {
+      setState(() {
+        _useNative = true;
+        _isChecking = false;
+      });
+      widget.onNativeDetected?.call(true);
+      debugPrint('TEST MODE: Using native bar on iOS');
+      return;
     }
+
+    // iOS 26+ native; diğerlerinde custom
+    final match = RegExp(r'(\\d+)').firstMatch(Platform.operatingSystemVersion);
+    final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
+    final canUseNative = major >= 26;
+
     setState(() {
-      _useNative = false;
+      _useNative = canUseNative;
       _isChecking = false;
     });
+    widget.onNativeDetected?.call(canUseNative);
+    debugPrint('iOS version: $major, native tabbar: $canUseNative');
   }
 
   @override
@@ -96,7 +141,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       return const SizedBox.shrink();
     }
 
-    // Force custom bar veya iOS <26
     if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
       return _CustomLiquidBar(
         key: LiquidBottomNavigationBar.barKey,
@@ -114,53 +158,68 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       );
     }
 
-    // iOS 26+ Native
-    if (_useNative && Platform.isIOS) {
+    if (_useNative && Theme.of(context).platform == TargetPlatform.iOS) {
       final theme = Theme.of(context);
-      final liquidItems = List.generate(widget.items.length, (i) {
-        final item = widget.items[i];
-        final iconData = (item.icon as Icon).icon!;
-        final sfSymbol = widget.sfSymbolMapper?.call(iconData) ?? 'circle.fill';
-        final count = widget.itemCounts?[i] ?? 50;
-        final nativeData = List.generate(
-          count,
-          (j) => {
-            'title': '${item.label ?? 'Item'} ${j + 1}',
-            'subtitle': 'Scroll to see effect',
-          },
-        );
-
-        return LiquidTabItem(
-          icon: sfSymbol,
-          label: item.label ?? '',
-          child: widget.pages[i],
-          nativeData: nativeData,
-        );
-      });
-
       final actionSFSymbol = widget.actionIcon?.$2 ?? 'magnifyingglass';
       final selectedColor =
           widget.selectedItemColor ?? theme.colorScheme.primary;
 
-      return UiKitView(
-        viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
-        creationParams: {
-          'labels': liquidItems.map((e) => e.label).toList(),
-          'sfSymbols': liquidItems.map((e) => e.icon).toList(),
-          'initialIndex': 0,
-          'enableActionTab': widget.showActionButton,
-          'actionSymbol': actionSFSymbol,
-          'nativeData': liquidItems.map((e) => e.nativeData ?? []).toList(),
-          'selectedColorHex':
-              '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
-          'labelVisibility': widget.labelVisibility.name,
-          'minimizeThreshold': widget.minimizeThreshold, // Swift'e gönder
+      return NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            final current = notification.metrics.pixels;
+            final delta = current - _lastScrollOffset;
+            _lastScrollOffset = current;
+            _sendScrollToNative(current, delta);
+          }
+          return false;
         },
-        creationParamsCodec: const StandardMessageCodec(),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IndexedStack(
+                index: widget.currentIndex,
+                children: widget.pages,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                color: Colors.transparent,
+                height: widget.height + MediaQuery.of(context).padding.bottom,
+                child: UiKitView(
+                  viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
+                  onPlatformViewCreated: (id) {
+                    _platformViewId = id;
+                    _scrollChannel = MethodChannel(
+                      'liquid_tabbar_minimize/scroll_$id',
+                    );
+                  },
+                  creationParams: {
+                    'labels': widget.items.map((e) => e.label ?? '').toList(),
+                    'sfSymbols': widget.items.map((e) {
+                      final iconData = (e.icon as Icon).icon!;
+                      return widget.sfSymbolMapper?.call(iconData) ??
+                          'circle.fill';
+                    }).toList(),
+                    'initialIndex': widget.currentIndex,
+                    'enableActionTab': widget.showActionButton,
+                    'actionSymbol': actionSFSymbol,
+                    'selectedColorHex':
+                        '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                    'labelVisibility': widget.labelVisibility.name,
+                  },
+                  creationParamsCodec: const StandardMessageCodec(),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
-    // Fallback (aslında buraya hiç gelmez ama required için)
     return _CustomLiquidBar(
       key: LiquidBottomNavigationBar.barKey,
       currentIndex: widget.currentIndex,
@@ -173,11 +232,28 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       selectedItemColor: widget.selectedItemColor,
       unselectedItemColor: widget.unselectedItemColor,
       labelVisibility: widget.labelVisibility,
-      minimizeThreshold: widget.minimizeThreshold, // Eksik olan parametre
+      minimizeThreshold: widget.minimizeThreshold,
     );
+  }
+
+  void _sendScrollToNative(double offset, double delta) {
+    if (_scrollChannel == null) {
+      debugPrint('⚠️ Scroll channel not ready yet');
+      return;
+    }
+    _scrollChannel!
+        .invokeMethod('onScroll', {
+          'offset': offset,
+          'delta': delta,
+          'threshold': widget.minimizeThreshold,
+        })
+        .catchError((error) {
+          debugPrint('❌ Send scroll error: $error');
+        });
   }
 }
 
+// Custom liquid tab bar (iOS < 26 veya forceCustomBar: true)
 class _CustomLiquidBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
@@ -213,6 +289,20 @@ class _CustomLiquidBar extends StatefulWidget {
 class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   double _barOpacity = 1.0;
   bool _isCollapsed = false;
+  MethodChannel? _nativeChannel;
+  int? _viewId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initNativeChannel();
+  }
+
+  void _initNativeChannel() {
+    // Generate a unique view ID for this instance
+    _viewId = DateTime.now().millisecondsSinceEpoch;
+    _nativeChannel = MethodChannel('liquid_tabbar_minimize/methods_$_viewId');
+  }
 
   void handleScroll(double offset, double delta) {
     final threshold = widget.minimizeThreshold * 1000; // 0.1 = 100px
@@ -240,6 +330,18 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
         _isCollapsed = false;
         _barOpacity = 1.0;
       });
+    }
+  }
+
+  // iOS 26+ native tab bar'a scroll bilgisi gönder
+  void sendScrollToNative(double offset) {
+    if (Platform.isIOS && _nativeChannel != null) {
+      _nativeChannel!
+          .invokeMethod('updateScrollOffset', {'offset': offset})
+          .catchError((error) {
+            // Native tarafta metod yoksa sessizce hata yoksay
+            debugPrint('sendScrollToNative error: $error');
+          });
     }
   }
 

@@ -267,13 +267,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         // Tab bar’ı aynı wrapper içinde daralt
         tabViewTrailing?.isActive = false
         if tabViewCollapsedWidth == nil {
-            tabViewCollapsedWidth = tbc.view.widthAnchor.constraint(equalToConstant: 76)
+            // Daha dar bir genişlik ver (76 -> 64)
+            tabViewCollapsedWidth = tbc.view.widthAnchor.constraint(equalToConstant: 105)
         }
         tabViewCollapsedWidth?.isActive = true
 
-        // Solda konumlamak için
-        tbc.tabBar.itemPositioning = .fill
-        tbc.tabBar.itemWidth = 52
+        // Ortalanmış tek ikon yerleşimi
+        tbc.tabBar.itemPositioning = .centered
+        tbc.tabBar.itemWidth = 0
         tbc.tabBar.itemSpacing = 0
 
         tbc.tabBar.setNeedsUpdateConstraints()
@@ -283,7 +284,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         container.setNeedsLayout()
 
         UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-            tbc.tabBar.layer.cornerRadius = 28
+            // Yükseklik/2 ile tam yuvarlak (capsule) köşe
+            tbc.tabBar.layer.cornerRadius = tbc.tabBar.bounds.height / 2
             wrapperView.alpha = 1.0
             wrapperView.layoutIfNeeded()
             self.container.layoutIfNeeded()
@@ -535,3 +537,4 @@ class SwiftUITabBarViewFactory: NSObject, FlutterPlatformViewFactory {
         FlutterStandardMessageCodec.sharedInstance()
     }
 }
+

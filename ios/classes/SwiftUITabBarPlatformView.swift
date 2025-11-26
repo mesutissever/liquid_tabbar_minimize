@@ -110,7 +110,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let pillWidth = includeAction ? (actionButtonSize + 20) : 0
         if includeAction {
             // Scale spacing with pill width but clamp so small devices don't overlap too much
-            let desiredSpacing = -(min(pillWidth * 0.38, 28))
+            let desiredSpacing = -(min(pillWidth * 0.38, 58))
             actionButtonSpacing = desiredSpacing
         }
         bottomOffset = CGFloat(bottomOffsetArg)

@@ -391,44 +391,25 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(36),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                    filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
                     child: Container(
                       height: widget.height,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: isDark
-                              ? [
-                                  Colors.black.withValues(alpha: 0.7),
-                                  Colors.black.withValues(alpha: 0.5),
-                                ]
-                              : [
-                                  Colors.white.withValues(alpha: 0.9),
-                                  Colors.white.withValues(alpha: 0.7),
-                                ],
-                        ),
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.10)
+                            : Colors.white.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(36),
                         border: Border.all(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.2)
-                              : Colors.black.withValues(alpha: 0.1),
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.07),
                           width: 0.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark
-                                ? Colors.black.withValues(alpha: 0.4)
-                                : Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 20,
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 12,
                             offset: const Offset(0, 4),
-                          ),
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.black.withValues(alpha: 0.2)
-                                : Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -577,40 +558,21 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                         width: widget.height,
                         height: widget.height,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: isDark
-                                ? [
-                                    Colors.black.withValues(alpha: 0.7),
-                                    Colors.black.withValues(alpha: 0.5),
-                                  ]
-                                : [
-                                    Colors.white.withValues(alpha: 0.9),
-                                    Colors.white.withValues(alpha: 0.7),
-                                  ],
-                          ),
+                          color: isDark
+                              ? Colors.black.withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(36),
                           border: Border.all(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.2)
-                                : Colors.black.withValues(alpha: 0.1),
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : Colors.black.withValues(alpha: 0.07),
                             width: 0.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.4)
-                                  : Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 20,
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 12,
                               offset: const Offset(0, 4),
-                            ),
-                            BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.2)
-                                  : Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),

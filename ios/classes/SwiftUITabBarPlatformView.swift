@@ -509,6 +509,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     // Tab seçimlerini Flutter'a yansıt
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         let tag = viewController.tabBarItem.tag
+        // Any normal tab tap should clear action pill selection state.
+        actionTabBar?.selectedItem = nil
         eventChannel.invokeMethod("onTabChanged", arguments: tag)
         return true
     }

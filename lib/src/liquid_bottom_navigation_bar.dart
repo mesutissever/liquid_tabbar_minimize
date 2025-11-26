@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,6 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
   final List<BottomNavigationBarItem> items;
-  final List<Widget> pages;
   final List<int>? itemCounts;
   final bool showActionButton;
   final (Icon, String)? actionIcon;
@@ -30,11 +30,10 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   /// Bottom offset to lift bar from home indicator. 0 = flush.
   final double bottomOffset;
 
-  const LiquidBottomNavigationBar({
+  LiquidBottomNavigationBar({
     super.key,
     required this.currentIndex,
     required this.items,
-    required this.pages,
     this.itemCounts,
     this.onTap,
     this.showActionButton = false,
@@ -51,8 +50,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.forceCustomBar = false, // iOS 26'da bile custom bar kullan
     this.bottomOffset = 0,
   }) : assert(items.length >= 2 && items.length <= 5),
-       assert(items.length == pages.length),
-       assert(itemCounts == null || itemCounts.length == pages.length);
+       assert(itemCounts == null || itemCounts.length == items.length);
 
   static final GlobalKey<_CustomLiquidBarState> barKey = GlobalKey();
   static _LiquidBottomNavigationBarState? _nativeState;
@@ -114,21 +112,20 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   }
 
   Future<void> _checkIOSVersion() async {
-    // TEST: iOS'ta her zaman native kullan
-    if (!widget.forceCustomBar && Platform.isIOS) {
+    // iOS 26+ native; diğerlerinde custom. forceCustomBar her zaman custom'a geçirir.
+    if (widget.forceCustomBar) {
       setState(() {
-        _useNative = true;
+        _useNative = false;
         _isChecking = false;
       });
-      widget.onNativeDetected?.call(true);
-      debugPrint('TEST MODE: Using native bar on iOS');
+      widget.onNativeDetected?.call(false);
       return;
     }
 
-    // iOS 26+ native; diğerlerinde custom
-    final match = RegExp(r'(\\d+)').firstMatch(Platform.operatingSystemVersion);
+    // Parse major iOS version (e.g., "Version 18.0.1" -> 18)
+    final match = RegExp(r'(\d+)').firstMatch(Platform.operatingSystemVersion);
     final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
-    final canUseNative = major >= 26;
+    final canUseNative = Platform.isIOS && major >= 26;
 
     setState(() {
       _useNative = canUseNative;
@@ -180,20 +177,14 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         },
         child: Stack(
           children: [
-            Positioned.fill(
-              child: IndexedStack(
-                index: widget.currentIndex,
-                children: widget.pages,
-              ),
-            ),
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               child: Container(
                 color: Colors.transparent,
-                // Native view already respects safe area; avoid double padding.
-                height: widget.height,
+                // Native view already respects safe area; add bottomOffset for parity with custom bar.
+                height: widget.height + widget.bottomOffset,
                 child: UiKitView(
                   viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
                   onPlatformViewCreated: (id) {
@@ -308,13 +299,12 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   }
 
   void _initNativeChannel() {
-    // Generate a unique view ID for this instance
     _viewId = DateTime.now().millisecondsSinceEpoch;
     _nativeChannel = MethodChannel('liquid_tabbar_minimize/methods_$_viewId');
   }
 
   void handleScroll(double offset, double delta) {
-    final threshold = widget.minimizeThreshold * 1000; // 0.1 = 100px
+    final threshold = widget.minimizeThreshold * 1000;
 
     if (offset <= 50) {
       if (_isCollapsed) {
@@ -328,7 +318,6 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
 
     if (delta.abs() < 3.0) return;
 
-    // Threshold check
     if (offset > threshold && delta > 0 && !_isCollapsed) {
       setState(() {
         _isCollapsed = true;
@@ -342,13 +331,11 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     }
   }
 
-  // iOS 26+ native tab bar'a scroll bilgisi gönder
   void sendScrollToNative(double offset) {
     if (Platform.isIOS && _nativeChannel != null) {
       _nativeChannel!
           .invokeMethod('updateScrollOffset', {'offset': offset})
           .catchError((error) {
-            // Native tarafta metod yoksa sessizce hata yoksay
             debugPrint('sendScrollToNative error: $error');
           });
     }
@@ -368,226 +355,292 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const safeAreaBottom = 0.0; // home indicator'a yapışık
+    final isDark = theme.brightness == Brightness.dark;
     final selectedColor = widget.selectedItemColor ?? theme.colorScheme.primary;
     final unselectedColor =
         widget.unselectedItemColor ??
-        (theme.brightness == Brightness.dark
-            ? Colors.white.withValues(alpha: 0.7)
-            : Colors.black.withValues(alpha: 0.6));
+        (isDark
+            ? Colors.white.withValues(alpha: 0.6)
+            : Colors.black.withValues(alpha: 0.5));
     final isActionSelected =
         widget.showActionButton && widget.currentIndex >= widget.items.length;
 
-    return Transform.translate(
-      offset: const Offset(0, 6),
-      child: Container(
-        height: widget.height + widget.bottomOffset,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: widget.bottomOffset,
-          ),
-          child: Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  width: _isCollapsed
-                      ? widget.height
-                      : (widget.showActionButton
-                            ? MediaQuery.of(context).size.width -
-                                  32 -
-                                  widget.height -
-                                  10
-                            : MediaQuery.of(context).size.width - 32),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(36),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(
-                        height: widget.height,
-                        decoration: BoxDecoration(
-                          color:
-                              (theme.brightness == Brightness.dark
-                                      ? Colors.black.withValues(alpha: 0.5)
-                                      : Colors.white.withValues(alpha: 0.7))
-                                  .withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(36),
-                          border: Border.all(
-                            color: theme.brightness == Brightness.dark
-                                ? Colors.white.withValues(alpha: 0.15)
-                                : Colors.black.withValues(alpha: 0.08),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+    // Custom bar spacing: small positive gap so action pill is separated but close.
+    final double actionSpacing = widget.showActionButton ? 8.0 : 0.0;
+    final double fullWidth = MediaQuery.of(context).size.width;
+    final double barWidth = widget.showActionButton
+        ? fullWidth - 32 - widget.height - actionSpacing
+        : fullWidth - 32;
+    final double barWidthClamped = math.max(barWidth, widget.height);
+    final double bottomGap =
+        widget.bottomOffset + 16; // lift both slightly from home indicator
+
+    return Container(
+      height: widget.height + bottomGap,
+      child: Padding(
+        padding: EdgeInsets.only(left: 16, right: 16, bottom: bottomGap),
+        child: Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                width: _isCollapsed ? widget.height : barWidthClamped,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(36),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                    child: Container(
+                      height: widget.height,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: isDark
+                              ? [
+                                  Colors.black.withValues(alpha: 0.7),
+                                  Colors.black.withValues(alpha: 0.5),
+                                ]
+                              : [
+                                  Colors.white.withValues(alpha: 0.9),
+                                  Colors.white.withValues(alpha: 0.7),
+                                ],
                         ),
-                        child: _isCollapsed
-                            ? _buildCollapsedTab(
-                                widget.currentIndex,
-                                selectedColor,
-                                unselectedColor,
-                              )
-                            : Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: List.generate(widget.items.length, (
-                                  index,
-                                ) {
-                                  final item = widget.items[index];
-                                  final isSelected =
-                                      widget.currentIndex == index;
-                                  return Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => widget.onTap?.call(index),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        curve: Curves.easeInOut,
-                                        margin: EdgeInsets.symmetric(
-                                          horizontal: isSelected ? 2 : 3,
-                                          vertical: isSelected ? 6 : 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? (theme.brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.white.withValues(
-                                                        alpha: 0.15,
-                                                      )
-                                                    : Colors.black.withValues(
-                                                        alpha: 0.08,
-                                                      ))
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            isSelected ? 28 : 36,
-                                          ),
-                                          border: isSelected
-                                              ? Border.all(
-                                                  color:
-                                                      theme.brightness ==
-                                                          Brightness.dark
-                                                      ? Colors.white.withValues(
-                                                          alpha: 0.25,
-                                                        )
-                                                      : Colors.black.withValues(
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.2)
+                              : Colors.black.withValues(alpha: 0.1),
+                          width: 0.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.4)
+                                : Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: _isCollapsed
+                          ? _buildCollapsedTab(
+                              widget.currentIndex,
+                              selectedColor,
+                              unselectedColor,
+                              isDark,
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: List.generate(widget.items.length, (
+                                index,
+                              ) {
+                                final item = widget.items[index];
+                                final isSelected = widget.currentIndex == index;
+                                return Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => widget.onTap?.call(index),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                      margin: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: isSelected ? 8 : 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: isSelected
+                                            ? LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: isDark
+                                                    ? [
+                                                        Colors.white.withValues(
+                                                          alpha: 0.18,
+                                                        ),
+                                                        Colors.white.withValues(
                                                           alpha: 0.12,
                                                         ),
-                                                  width: 0.5,
-                                                )
-                                              : null,
-                                        ),
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            IconTheme(
+                                                      ]
+                                                    : [
+                                                        Colors.black.withValues(
+                                                          alpha: 0.12,
+                                                        ),
+                                                        Colors.black.withValues(
+                                                          alpha: 0.08,
+                                                        ),
+                                                      ],
+                                              )
+                                            : null,
+                                        borderRadius: BorderRadius.circular(26),
+                                        border: isSelected
+                                            ? Border.all(
+                                                color: isDark
+                                                    ? Colors.white.withValues(
+                                                        alpha: 0.3,
+                                                      )
+                                                    : Colors.black.withValues(
+                                                        alpha: 0.15,
+                                                      ),
+                                                width: 0.5,
+                                              )
+                                            : null,
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.1,
+                                                        )
+                                                      : Colors.black.withValues(
+                                                          alpha: 0.05,
+                                                        ),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          AnimatedScale(
+                                            scale: isSelected ? 1.05 : 1.0,
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.easeInOut,
+                                            child: IconTheme(
                                               data: IconThemeData(
-                                                size: isSelected ? 26 : 23,
+                                                size: isSelected ? 26 : 24,
                                                 color: isSelected
                                                     ? selectedColor
                                                     : unselectedColor,
                                               ),
                                               child: item.icon,
                                             ),
-                                            if (item.label != null &&
-                                                _shouldShowLabel(
-                                                  isSelected,
-                                                )) ...[
-                                              const SizedBox(height: 3),
-                                              Flexible(
-                                                child: Text(
-                                                  item.label!,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: isSelected
-                                                        ? FontWeight.w600
-                                                        : FontWeight.normal,
-                                                    color: isSelected
-                                                        ? selectedColor
-                                                        : unselectedColor,
-                                                  ),
+                                          ),
+                                          if (item.label != null &&
+                                              _shouldShowLabel(isSelected)) ...[
+                                            const SizedBox(height: 4),
+                                            Flexible(
+                                              child: Text(
+                                                item.label!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w500,
+                                                  color: isSelected
+                                                      ? selectedColor
+                                                      : unselectedColor,
+                                                  letterSpacing: 0.2,
                                                 ),
                                               ),
-                                            ],
+                                            ),
                                           ],
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                }),
-                              ),
-                      ),
+                                  ),
+                                );
+                              }),
+                            ),
                     ),
                   ),
                 ),
               ),
-              if (widget.showActionButton)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: widget.onActionTap,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(36),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          width: widget.height,
-                          height: widget.height,
-                          decoration: BoxDecoration(
-                            color:
-                                (theme.brightness == Brightness.dark
-                                        ? Colors.black.withValues(alpha: 0.5)
-                                        : Colors.white.withValues(alpha: 0.7))
-                                    .withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(36),
-                            border: Border.all(
-                              color: theme.brightness == Brightness.dark
-                                  ? Colors.white.withValues(alpha: 0.15)
-                                  : Colors.black.withValues(alpha: 0.08),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+            ),
+            if (widget.showActionButton)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: GestureDetector(
+                  onTap: widget.onActionTap,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(36),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      child: Container(
+                        width: widget.height,
+                        height: widget.height,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: isDark
+                                ? [
+                                    Colors.black.withValues(alpha: 0.7),
+                                    Colors.black.withValues(alpha: 0.5),
+                                  ]
+                                : [
+                                    Colors.white.withValues(alpha: 0.9),
+                                    Colors.white.withValues(alpha: 0.7),
+                                  ],
                           ),
-                          child: IconTheme(
-                            data: IconThemeData(
-                              size: 24,
-                              color: isActionSelected
-                                  ? selectedColor
-                                  : (theme.brightness == Brightness.dark
-                                        ? Colors.white.withValues(alpha: 0.7)
-                                        : Colors.black.withValues(alpha: 0.6)),
+                          borderRadius: BorderRadius.circular(36),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.1),
+                            width: 0.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.4)
+                                  : Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
                             ),
-                            child:
-                                widget.actionIcon ?? const Icon(Icons.search),
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.2)
+                                  : Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: AnimatedScale(
+                            scale: isActionSelected ? 1.05 : 1.0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: IconTheme(
+                              data: IconThemeData(
+                                size: 24,
+                                color: isActionSelected
+                                    ? selectedColor
+                                    : (isDark
+                                          ? Colors.white.withValues(alpha: 0.6)
+                                          : Colors.black.withValues(
+                                              alpha: 0.5,
+                                            )),
+                              ),
+                              child:
+                                  widget.actionIcon ?? const Icon(Icons.search),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -597,27 +650,47 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     int currentIndex,
     Color selectedColor,
     Color unselectedColor,
+    bool isDark,
   ) {
     final item = widget.items[currentIndex];
     return GestureDetector(
       onTap: () => setState(() => _isCollapsed = false),
       child: Container(
-        margin: const EdgeInsets.all(8),
+        margin: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.black.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(28),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? [
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.white.withValues(alpha: 0.12),
+                  ]
+                : [
+                    Colors.black.withValues(alpha: 0.12),
+                    Colors.black.withValues(alpha: 0.08),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(26),
           border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withValues(alpha: 0.25)
-                : Colors.black.withValues(alpha: 0.12),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.15),
             width: 0.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Center(
           child: IconTheme(
-            data: IconThemeData(size: 24, color: selectedColor),
+            data: IconThemeData(size: 26, color: selectedColor),
             child: item.icon,
           ),
         ),

@@ -347,7 +347,7 @@ class _HomePageState extends State<HomePage> {
         onActionTap: () {
           debugPrint('Search tapped!');
           setState(() {
-            _selectedIndex = 4;
+            _selectedIndex = 3;
             _lastScrollOffset = 0;
           });
         },
@@ -362,7 +362,7 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.grey,
         labelVisibility: LabelVisibility.always,
         height: 68,
-        forceCustomBar: false, // Native kalsın
+        forceCustomBar: false,
       ),
     );
   }

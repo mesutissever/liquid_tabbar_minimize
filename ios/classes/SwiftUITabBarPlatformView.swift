@@ -19,6 +19,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var scrollChannel: FlutterMethodChannel?
     private weak var tabBarController: UITabBarController?
     private var isMinimized = false
+    private var bottomOffset: CGFloat = 0
 
     // Ayrı action tabbar
     private weak var actionButtonContainer: UIView?
@@ -26,7 +27,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var actionButtonTrailing: NSLayoutConstraint?
     private var actionButtonBottom: NSLayoutConstraint?
     private var actionButtonSize: CGFloat = 0
-    private let actionButtonSpacing: CGFloat = 2
+    private var actionButtonSpacing: CGFloat = 0
 
     // Ana wrapper
     private weak var tabBarWrapper: UIView?
@@ -102,10 +103,17 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let includeAction = Self.parseActionFlag(args: args)
         let actionSymbol = Self.parseActionSymbol(args: args)
         let selectedColor = Self.parseSelectedColor(args: args)
+        let bottomOffsetArg = Self.parseBottomOffset(args: args)
         selectedTintColor = selectedColor
         let initialIndex = (args as? [String: Any])?["initialIndex"] as? Int ?? 0
         actionButtonSize = max(64, UITabBar().sizeThatFits(.zero).height)
         let pillWidth = includeAction ? (actionButtonSize + 20) : 0
+        if includeAction {
+            // Scale spacing with pill width but clamp so small devices don't overlap too much
+            let desiredSpacing = -(min(pillWidth * 0.38, 28))
+            actionButtonSpacing = desiredSpacing
+        }
+        bottomOffset = CGFloat(bottomOffsetArg)
 
         let tabController = UITabBarController()
         tabController.delegate = self
@@ -177,8 +185,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             // Başlangıçta tab bar full genişlikte wrapper’a eklenecek
             wrapper.addSubview(tabController.view)
 
-            // Tab bar'ı aksiyon pill'i için yer bırakarak ayarla (2px aralık)
-            let trailingOffset = includeAction ? (pillWidth + actionButtonSpacing) : 0
+            // Tab bar'ı aksiyon pill'i için yer bırakarak ayarla (negatif spacing ile birleşik görünüm)
+            let trailingOffsetBase = includeAction ? (pillWidth + actionButtonSpacing) : 0
+            let trailingOffset = max(trailingOffsetBase, 4) // en az 4px pay bırak
 
             // Expanded (normal) kenar boşlukları: solda 2px, sağda 2px + action boşluğu
             let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
@@ -187,7 +196,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
             let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(2 + trailingOffset))
 
-            let bottom = wrapper.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: 0)
+            let bottom = wrapper.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomOffset)
             let height = wrapper.heightAnchor.constraint(equalTo: tabController.tabBar.heightAnchor)
 
             // TabController.view kısıtları
@@ -260,8 +269,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionButtonContainer = actionBar
             actionTabBar = actionBar
 
-            let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: 0)
-            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2)
+            let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomOffset)
+            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: 0)
 
             NSLayoutConstraint.activate([
                 bottomConst,
@@ -568,6 +577,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func parseLabelVisibility(args: Any?) -> String {
         (args as? [String: Any])?["labelVisibility"] as? String ?? "always"
+    }
+
+    static func parseBottomOffset(args: Any?) -> Double {
+        (args as? [String: Any])?["bottomOffset"] as? Double ?? 0
     }
 
     static func defaultItems() -> [NativeTabItemData] {

@@ -27,6 +27,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final LabelVisibility labelVisibility;
   final double minimizeThreshold; // Scroll threshold (örn: 0.1 = %10)
   final bool forceCustomBar; // Native'i devre dışı bırak
+  /// Bottom offset to lift bar from home indicator. 0 = flush.
+  final double bottomOffset;
 
   const LiquidBottomNavigationBar({
     super.key,
@@ -47,6 +49,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.labelVisibility = LabelVisibility.always,
     this.minimizeThreshold = 0.1, // Default %10
     this.forceCustomBar = false, // iOS 26'da bile custom bar kullan
+    this.bottomOffset = 0,
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(items.length == pages.length),
        assert(itemCounts == null || itemCounts.length == pages.length);
@@ -155,6 +158,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         unselectedItemColor: widget.unselectedItemColor,
         labelVisibility: widget.labelVisibility,
         minimizeThreshold: widget.minimizeThreshold,
+        bottomOffset: widget.bottomOffset,
       );
     }
 
@@ -211,6 +215,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                     'selectedColorHex':
                         '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
                     'labelVisibility': widget.labelVisibility.name,
+                    'bottomOffset': widget.bottomOffset,
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -234,6 +239,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       unselectedItemColor: widget.unselectedItemColor,
       labelVisibility: widget.labelVisibility,
       minimizeThreshold: widget.minimizeThreshold,
+      bottomOffset: widget.bottomOffset,
     );
   }
 
@@ -267,6 +273,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final Color? unselectedItemColor;
   final LabelVisibility labelVisibility;
   final double minimizeThreshold;
+  final double bottomOffset;
 
   const _CustomLiquidBar({
     super.key,
@@ -281,6 +288,7 @@ class _CustomLiquidBar extends StatefulWidget {
     this.unselectedItemColor,
     required this.labelVisibility,
     required this.minimizeThreshold,
+    required this.bottomOffset,
   });
 
   @override
@@ -360,7 +368,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    const safeAreaBottom = 0.0; // home indicator'a yapışık
     final selectedColor = widget.selectedItemColor ?? theme.colorScheme.primary;
     final unselectedColor =
         widget.unselectedItemColor ??
@@ -373,9 +381,13 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     return Transform.translate(
       offset: const Offset(0, 6),
       child: Container(
-        height: widget.height + safeAreaBottom,
+        height: widget.height + widget.bottomOffset,
         child: Padding(
-          padding: EdgeInsets.only(left: 16, right: 16, bottom: safeAreaBottom),
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: widget.bottomOffset,
+          ),
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [

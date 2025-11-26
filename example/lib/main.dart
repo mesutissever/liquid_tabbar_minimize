@@ -28,7 +28,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
-  bool _isNative = false;
 
   // Her sayfa için ayrı ScrollController
   late final ScrollController _homeScrollController;
@@ -337,13 +336,9 @@ class _HomePageState extends State<HomePage> {
             label: 'Settings',
           ),
         ],
-        pages: [Container(), Container(), Container(), Container()],
         sfSymbolMapper: _iconToSFSymbol,
-        showActionButton: false, // TESTİ İÇİN KAPATALIM
-        actionIcon: (
-          const Icon(Icons.search, size: 0, color: Colors.transparent),
-          'magnifyingglass',
-        ),
+        showActionButton: true,
+        actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
         onActionTap: () {
           debugPrint('Search tapped!');
           setState(() {
@@ -351,18 +346,11 @@ class _HomePageState extends State<HomePage> {
             _lastScrollOffset = 0;
           });
         },
-        onNativeDetected: (isNative) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() => _isNative = isNative);
-          });
-          debugPrint('Native tab bar: $isNative');
-          debugPrint('iOS version: ${Platform.operatingSystemVersion}');
-        },
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         labelVisibility: LabelVisibility.always,
         height: 68,
-        forceCustomBar: false, // Native kalsın
+        forceCustomBar: false,
       ),
     );
   }

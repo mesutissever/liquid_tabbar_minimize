@@ -26,7 +26,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var actionButtonTrailing: NSLayoutConstraint?
     private var actionButtonBottom: NSLayoutConstraint?
     private var actionButtonSize: CGFloat = 0
-    private let actionButtonSpacing: CGFloat = 10
+    private let actionButtonSpacing: CGFloat = 0
 
     // Ana wrapper
     private weak var tabBarWrapper: UIView?
@@ -233,10 +233,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                     tag: -1
                 )
             ]
+            let pillWidth = actionButtonSize + 20
             actionBar.itemPositioning = .automatic
             actionBar.itemWidth = 0
             actionBar.itemSpacing = 0
-            actionBar.layer.cornerRadius = (actionButtonSize + 12) / 2
+            actionBar.layer.cornerRadius = pillWidth / 2
             actionBar.clipsToBounds = true
 
             if #available(iOS 15.0, *) {
@@ -262,7 +263,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             NSLayoutConstraint.activate([
                 bottomConst,
                 trailingConst,
-                actionBar.widthAnchor.constraint(equalToConstant: actionButtonSize + 12),
+                actionBar.widthAnchor.constraint(equalToConstant: pillWidth),
                 actionBar.heightAnchor.constraint(equalToConstant: actionButtonSize)
             ])
 

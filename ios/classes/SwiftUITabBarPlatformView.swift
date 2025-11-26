@@ -26,7 +26,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var actionButtonTrailing: NSLayoutConstraint?
     private var actionButtonBottom: NSLayoutConstraint?
     private var actionButtonSize: CGFloat = 0
-    private let actionButtonSpacing: CGFloat = 0
+    private let actionButtonSpacing: CGFloat = 2
 
     // Ana wrapper
     private weak var tabBarWrapper: UIView?
@@ -105,6 +105,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         selectedTintColor = selectedColor
         let initialIndex = (args as? [String: Any])?["initialIndex"] as? Int ?? 0
         actionButtonSize = max(64, UITabBar().sizeThatFits(.zero).height)
+        let pillWidth = includeAction ? (actionButtonSize + 20) : 0
 
         let tabController = UITabBarController()
         tabController.delegate = self
@@ -125,6 +126,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         if initialIndex >= 0 && initialIndex < controllers.count {
             tabController.selectedIndex = initialIndex
         }
+        tabController.additionalSafeAreaInsets.bottom = 0
         originalViewControllers = controllers
         if let items = tabController.tabBar.items {
             for item in items { originalTitlesByTag[item.tag] = item.title }
@@ -132,6 +134,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
         let tabBar = tabController.tabBar
         tabBar.isTranslucent = true
+        tabBar.insetsLayoutMarginsFromSafeArea = false
         tabBar.backgroundColor = .clear
         tabBar.barTintColor = .clear
         tabBar.backgroundImage = UIImage()
@@ -174,17 +177,17 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             // Başlangıçta tab bar full genişlikte wrapper’a eklenecek
             wrapper.addSubview(tabController.view)
 
-            // let trailingOffset = includeAction ? (actionButtonSize + actionButtonSpacing + 6) : 0
-            let trailingOffset = includeAction ? (actionButtonSize + actionButtonSpacing) : 0
+            // Tab bar'ı aksiyon pill'i için yer bırakarak ayarla (2px aralık)
+            let trailingOffset = includeAction ? (pillWidth + actionButtonSpacing) : 0
 
-            // Expanded (normal) kenar boşlukları: 16 / 16 (+ action boşluğu)
-            let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
-            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(16 + trailingOffset))
-            // Collapsed (minimized) kenar boşlukları: solda 16, sağda 28 (+ action boşluğu)
-            let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
-            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(28 + trailingOffset))
+            // Expanded (normal) kenar boşlukları: solda 2px, sağda 2px + action boşluğu
+            let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
+            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(2 + trailingOffset))
+            // Collapsed (minimized) kenar boşlukları: solda 2px, sağda 2px + action boşluğu
+            let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
+            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(2 + trailingOffset))
 
-            let bottom = wrapper.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+            let bottom = wrapper.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: 0)
             let height = wrapper.heightAnchor.constraint(equalTo: tabController.tabBar.heightAnchor)
 
             // TabController.view kısıtları
@@ -222,6 +225,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionBar.translatesAutoresizingMaskIntoConstraints = false
             actionBar.delegate = self
             actionBar.isTranslucent = true
+            actionBar.insetsLayoutMarginsFromSafeArea = false
             actionBar.backgroundImage = UIImage()
             actionBar.shadowImage = UIImage()
             actionBar.tintColor = selectedColor
@@ -233,7 +237,6 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                     tag: -1
                 )
             ]
-            let pillWidth = actionButtonSize + 20
             actionBar.itemPositioning = .automatic
             actionBar.itemWidth = 0
             actionBar.itemSpacing = 0
@@ -257,8 +260,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionButtonContainer = actionBar
             actionTabBar = actionBar
 
-            let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor, constant: -8)
-            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
+            let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: 0)
+            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2)
 
             NSLayoutConstraint.activate([
                 bottomConst,

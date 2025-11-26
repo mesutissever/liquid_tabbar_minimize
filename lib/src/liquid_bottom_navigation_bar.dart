@@ -188,7 +188,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
               bottom: 0,
               child: Container(
                 color: Colors.transparent,
-                height: widget.height + MediaQuery.of(context).padding.bottom,
+                // Native view already respects safe area; avoid double padding.
+                height: widget.height,
                 child: UiKitView(
                   viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
                   onPlatformViewCreated: (id) {

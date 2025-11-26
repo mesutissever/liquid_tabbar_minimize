@@ -339,7 +339,7 @@ class _HomePageState extends State<HomePage> {
         ],
         pages: [Container(), Container(), Container(), Container()],
         sfSymbolMapper: _iconToSFSymbol,
-        showActionButton: false, // TESTİ İÇİN KAPATALIM
+        showActionButton: true, // TESTİ İÇİN KAPATALIM
         actionIcon: (
           const Icon(Icons.search, size: 0, color: Colors.transparent),
           'magnifyingglass',

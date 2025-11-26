@@ -13,12 +13,20 @@ struct NativeTabItemData: Identifiable {
 // MARK: - Platform View
 
 @available(iOS 14.0, *)
-class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControllerDelegate {
+class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControllerDelegate, UITabBarDelegate {
     private let container: UIView
     private let eventChannel: FlutterMethodChannel
     private var scrollChannel: FlutterMethodChannel?
     private weak var tabBarController: UITabBarController?
     private var isMinimized = false
+
+    // Ayrı action tabbar
+    private weak var actionButtonContainer: UIView?
+    private weak var actionTabBar: UITabBar?
+    private var actionButtonTrailing: NSLayoutConstraint?
+    private var actionButtonBottom: NSLayoutConstraint?
+    private var actionButtonSize: CGFloat = 0
+    private let actionButtonSpacing: CGFloat = 10
 
     // Ana wrapper
     private weak var tabBarWrapper: UIView?
@@ -96,6 +104,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let selectedColor = Self.parseSelectedColor(args: args)
         selectedTintColor = selectedColor
         let initialIndex = (args as? [String: Any])?["initialIndex"] as? Int ?? 0
+        actionButtonSize = max(64, UITabBar().sizeThatFits(.zero).height)
 
         let tabController = UITabBarController()
         tabController.delegate = self
@@ -110,18 +119,6 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 tag: item.id
             )
             return vc
-        }
-
-        if includeAction {
-            let actionVC = UIViewController()
-            actionVC.view.backgroundColor = .clear
-            actionVC.view.isOpaque = false
-            actionVC.tabBarItem = UITabBarItem(
-                title: nil,
-                image: UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol),
-                tag: -1
-            )
-            controllers.append(actionVC)
         }
 
         tabController.viewControllers = controllers
@@ -177,12 +174,15 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             // Başlangıçta tab bar full genişlikte wrapper’a eklenecek
             wrapper.addSubview(tabController.view)
 
-            // Expanded (normal) kenar boşlukları: 16 / 16
+            // let trailingOffset = includeAction ? (actionButtonSize + actionButtonSpacing + 6) : 0
+            let trailingOffset = includeAction ? (actionButtonSize + actionButtonSpacing) : 0
+
+            // Expanded (normal) kenar boşlukları: 16 / 16 (+ action boşluğu)
             let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
-            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
-            // Collapsed (minimized) kenar boşlukları: solda 16, sağda 28
+            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(16 + trailingOffset))
+            // Collapsed (minimized) kenar boşlukları: solda 16, sağda 28 (+ action boşluğu)
             let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16)
-            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -28)
+            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(28 + trailingOffset))
 
             let bottom = wrapper.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor, constant: -8)
             let height = wrapper.heightAnchor.constraint(equalTo: tabController.tabBar.heightAnchor)
@@ -214,6 +214,60 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             NSLayoutConstraint.activate(baseConstraints + [leadExp, trailExp])
 
             tabController.didMove(toParent: parent)
+        }
+
+        // Ayrı action tabbar: ana tabbarın dışında, sağda konumlanan yuvarlak, etiketsiz
+        if includeAction {
+            let actionBar = UITabBar(frame: .zero)
+            actionBar.translatesAutoresizingMaskIntoConstraints = false
+            actionBar.delegate = self
+            actionBar.isTranslucent = true
+            actionBar.backgroundImage = UIImage()
+            actionBar.shadowImage = UIImage()
+            actionBar.tintColor = selectedColor
+            actionBar.unselectedItemTintColor = selectedColor
+            actionBar.items = [
+                UITabBarItem(
+                    title: nil,
+                    image: UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol),
+                    tag: -1
+                )
+            ]
+            actionBar.itemPositioning = .automatic
+            actionBar.itemWidth = 0
+            actionBar.itemSpacing = 0
+            actionBar.layer.cornerRadius = (actionButtonSize + 12) / 2
+            actionBar.clipsToBounds = true
+
+            if #available(iOS 15.0, *) {
+                let appearance = UITabBarAppearance()
+                appearance.configureWithTransparentBackground()
+                appearance.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
+                appearance.backgroundColor = UIColor.black.withAlphaComponent(0.22)
+                appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
+                appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
+                appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
+                appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
+                actionBar.standardAppearance = appearance
+                actionBar.scrollEdgeAppearance = appearance
+            }
+
+            container.addSubview(actionBar)
+            actionButtonContainer = actionBar
+            actionTabBar = actionBar
+
+            let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16)
+
+            NSLayoutConstraint.activate([
+                bottomConst,
+                trailingConst,
+                actionBar.widthAnchor.constraint(equalToConstant: actionButtonSize + 12),
+                actionBar.heightAnchor.constraint(equalToConstant: actionButtonSize)
+            ])
+
+            actionButtonBottom = bottomConst
+            actionButtonTrailing = trailingConst
         }
 
         self.tabBarController = tabController
@@ -442,12 +496,15 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     // Tab seçimlerini Flutter'a yansıt
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         let tag = viewController.tabBarItem.tag
-        if tag == -1 {
-            eventChannel.invokeMethod("onActionTapped", arguments: nil)
-            return false
-        }
         eventChannel.invokeMethod("onTabChanged", arguments: tag)
         return true
+    }
+
+    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        if tabBar == actionTabBar && item.tag == -1 {
+            eventChannel.invokeMethod("onActionTapped", arguments: nil)
+            tabBar.selectedItem = nil
+        }
     }
 
     deinit {
@@ -537,4 +594,3 @@ class SwiftUITabBarViewFactory: NSObject, FlutterPlatformViewFactory {
         FlutterStandardMessageCodec.sharedInstance()
     }
 }
-

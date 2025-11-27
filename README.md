@@ -132,3 +132,6 @@ See [`example/`](example/) for a runnable demo with multiple screens and scroll 
 
 ## License
 MIT — see [LICENSE](LICENSE).
+
+## Support
+If this package helps you, consider buying me a coffee: https://buymeacoffee.com/mesisse

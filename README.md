@@ -4,6 +4,15 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue) ![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.0.0-blue)
 
+## Demos
+- Custom bar (iOS <26 / Android)
+  
+  ![Custom Bar](assets/ios18.gif)
+
+- Native bar (iOS 26+)
+  
+  ![Native Bar](assets/ios26.gif)
+
 ## Highlights
 - Native SwiftUI tab bar on iOS 26+; custom glassmorphism bar on older iOS and Android
 - Scroll-to-minimize with tunable threshold and start offset (or disable entirely)

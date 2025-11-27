@@ -375,6 +375,7 @@ class _HomePageState extends State<HomePage> {
         height: 68,
         forceCustomBar: false,
         collapseStartOffset: 0,
+        animationDuration: const Duration(milliseconds: 100),
       ),
     );
   }

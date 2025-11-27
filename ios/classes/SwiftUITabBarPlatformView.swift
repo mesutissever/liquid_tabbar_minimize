@@ -70,6 +70,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var enableMinimize: Bool = true
     private var labelVisibility: String = "always"
     private var collapseStartOffset: Double = 20.0
+    private var animationDuration: Double = 0.25
+    private var lastOffset: Double = 0
+    private var lastDelta: Double = 0
 
     private var originalTabBarItems: [UITabBarItem]?
 
@@ -93,14 +96,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 call.method == "onScroll",
                 let args = call.arguments as? [String: Any],
                 let offset = args["offset"] as? Double,
-                let delta = args["delta"] as? Double,
-                let threshold = args["threshold"] as? Double
+                let delta = args["delta"] as? Double
             else {
                 result(FlutterMethodNotImplemented)
                 return
             }
-            print("SCROLL iOS offset=\(offset) delta=\(delta) thr=\(threshold) isMin=\(self?.isMinimized ?? false)")
-            self?.handleScroll(offset: offset, delta: delta, threshold: threshold)
+            print("SCROLL iOS offset=\(offset) delta=\(delta) isMin=\(self?.isMinimized ?? false)")
+            self?.handleScroll(offset: offset, delta: delta)
             result(nil)
         }
 
@@ -116,7 +118,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         enableMinimize = Self.parseEnableMinimize(args: args)
         labelVisibility = Self.parseLabelVisibility(args: args)
         collapseStartOffset = Self.parseCollapseStartOffset(args: args)
+        animationDuration = Self.parseAnimationDurationMs(args: args) / 1000.0
         let bottomOffsetArg = Self.parseBottomOffset(args: args)
+        lastOffset = 0
         selectedTintColor = selectedColor
         unselectedTintColor = unselectedColor
         let initialIndex = (args as? [String: Any])?["initialIndex"] as? Int ?? 0
@@ -332,21 +336,26 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     func view() -> UIView { container }
 
-    private func handleScroll(offset: Double, delta: Double, threshold: Double) {
+    private func handleScroll(offset: Double, delta: Double) {
         guard enableMinimize else { return }
         guard let wrapper = tabBarWrapper, !isTransitioning else { return }
         if Date().timeIntervalSince(ignoreScrollUntil) < 0 { return }
         if !isMinimized && Date().timeIntervalSince(expandedLockUntil) < 0 { return }
-        // If collapseStartOffset is provided (including 0), prefer it; otherwise use threshold.
-        let pixelThreshold = collapseStartOffset > 0 ? collapseStartOffset : threshold * 1000.0
-        let topSnapOffset: Double = collapseStartOffset
+        let pixelThreshold = max(collapseStartOffset, 0)
+        lastOffset = offset
+        lastDelta = delta
 
-        // Only expand near the very top; avoid reopening near the bottom
-        if offset <= topSnapOffset {
-            expandTabBar(wrapper)
-        } else if delta > 0 && offset > pixelThreshold && !isMinimized {
+        // Ignore sudden large jumps (often first frame after tab switch)
+        if abs(delta) > 120 { return }
+
+        // Collapse after threshold on meaningful downward scroll
+        if !isMinimized && delta > 4 && offset > pixelThreshold {
             collapseTabBar(wrapper)
-        } else if delta < 0 && isMinimized && offset <= topSnapOffset {
+            return
+        }
+
+        // Only expand when we reach the top area
+        if offset <= pixelThreshold && isMinimized {
             expandTabBar(wrapper)
         }
     }
@@ -400,7 +409,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         wrapperView.setNeedsLayout()
         container.setNeedsLayout()
 
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
+        UIView.animate(withDuration: animationDuration, delay: 0, options: [.curveEaseOut]) {
             // Rounded corners to half the height (capsule)
             tbc.tabBar.layer.cornerRadius = tbc.tabBar.bounds.height / 2
             wrapperView.alpha = 1.0
@@ -434,6 +443,67 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             expandTapRecognizer = nil
         }
 
+        resetExpandedLayout(wrapper: wrapper, tbc: tbc)
+
+        UIView.animate(withDuration: animationDuration, delay: 0, options: [.curveEaseIn], animations: {
+            tbc.tabBar.layer.cornerRadius = 24
+            wrapperView.alpha = 1.0
+            wrapperView.layoutIfNeeded()
+            self.container.layoutIfNeeded()
+        }, completion: { _ in
+            self.isTransitioning = false
+                // After animation finishes, force re-selection/layout
+            if let vcs = tbc.viewControllers {
+                let savedIdx = tbc.selectedIndex
+                let savedDelegate = tbc.delegate
+                tbc.delegate = nil
+                for i in 0..<vcs.count {
+                    tbc.selectedIndex = i
+                }
+                tbc.selectedIndex = savedIdx
+                tbc.delegate = savedDelegate
+            }
+
+            DispatchQueue.main.async {
+                tbc.tabBar.itemPositioning = .automatic
+                tbc.tabBar.itemWidth = 0
+                tbc.tabBar.itemSpacing = 0
+                tbc.tabBar.setNeedsLayout()
+                tbc.tabBar.layoutIfNeeded()
+            }
+        })
+    }
+
+    private func resetExpandedLayout(wrapper: UIView, tbc: UITabBarController) {
+        // Restore expanded insets
+        if let leadExp = expandedLeading, let trailExp = expandedTrailing,
+           let leadCol = collapsedLeading, let trailCol = collapsedTrailing {
+            NSLayoutConstraint.deactivate([leadCol, trailCol])
+            NSLayoutConstraint.activate(baseConstraints + [leadExp, trailExp])
+        }
+
+        tabViewCollapsedWidth?.isActive = false
+        tabViewTrailing?.isActive = true
+
+        // Restore all VCs if they were collapsed
+        if let original = originalViewControllers, tbc.viewControllers?.count == 1 {
+            tbc.setViewControllers([], animated: false)
+            tbc.setViewControllers(original, animated: false)
+        }
+
+        if let tag = savedSelectedTag, let list = tbc.viewControllers,
+           let idx = list.firstIndex(where: { $0.tabBarItem.tag == tag }) {
+            tbc.selectedIndex = idx
+        }
+
+        tbc.tabBar.itemPositioning = .automatic
+        tbc.tabBar.itemWidth = 0
+        tbc.tabBar.itemSpacing = 0
+
+        wrapper.setNeedsLayout()
+        container.setNeedsLayout()
+        tbc.tabBar.setNeedsLayout()
+        tbc.tabBar.layoutIfNeeded()
         // Restore expanded insets
         if let leadExp = expandedLeading, let trailExp = expandedTrailing,
            let leadCol = collapsedLeading, let trailCol = collapsedTrailing {
@@ -476,14 +546,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         tbc.tabBar.setNeedsUpdateConstraints()
         tbc.tabBar.setNeedsLayout()
         tbc.tabBar.layoutIfNeeded()
-        wrapperView.setNeedsLayout()
         container.setNeedsLayout()
 
         // Animate expansion visuals first
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn], animations: {
+        UIView.animate(withDuration: animationDuration, delay: 0, options: [.curveEaseIn], animations: {
             tbc.tabBar.layer.cornerRadius = 24
-            wrapperView.alpha = 1.0
-            wrapperView.layoutIfNeeded()
+            tbc.tabBar.alpha = 1.0
+            tbc.tabBar.layoutIfNeeded()
             self.container.layoutIfNeeded()
         }, completion: { _ in
             self.isTransitioning = false
@@ -602,9 +671,15 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         // Briefly ignore scroll-triggered minimize after selection
         ignoreScrollUntil = Date().addingTimeInterval(1.2)
         expandedLockUntil = Date().addingTimeInterval(1.2)
-        // If minimized, expand first on any tab tap
-        if isMinimized, let wrapper = tabBarWrapper {
-            expandTabBar(wrapper)
+        lastOffset = 0
+        lastDelta = 0
+        // On tab switch ensure bar is expanded and constraints restored
+        if let wrapper = tabBarWrapper, let tbc = tabBarController as UITabBarController? {
+            if isMinimized {
+                expandTabBar(wrapper)
+            } else {
+                resetExpandedLayout(wrapper: wrapper, tbc: tbc)
+            }
         }
         // Any normal tab tap should clear action pill selection state.
         actionTabBar?.selectedItem = nil
@@ -745,6 +820,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func parseCollapseStartOffset(args: Any?) -> Double {
         (args as? [String: Any])?["collapseStartOffset"] as? Double ?? 20.0
+    }
+
+    static func parseAnimationDurationMs(args: Any?) -> Double {
+        (args as? [String: Any])?["animationDurationMs"] as? Double ?? 250.0
     }
 
     static func defaultItems() -> [NativeTabItemData] {

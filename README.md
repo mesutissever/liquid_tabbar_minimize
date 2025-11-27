@@ -85,9 +85,9 @@ LiquidBottomNavigationBar(
   labelVisibility: LabelVisibility.selectedOnly,
   // Minimize tuning
   enableMinimize: true,          // false keeps bar always expanded
-  minimizeThreshold: 0.1,        // 10% scroll threshold
   collapseStartOffset: 20,       // px before minimize kicks in (0 = immediate)
   forceCustomBar: false,         // true = always use custom bar
+  animationDuration: Duration(milliseconds: 250), // minimize/expand anim
 );
 ```
 
@@ -107,8 +107,8 @@ LiquidBottomNavigationBar(
 | `bottomOffset` | `double` | 0 | Lift bar above home indicator |
 | `labelVisibility` | `LabelVisibility` | always | Label display mode |
 | `sfSymbolMapper` | `Function?` | null | Map IconData to SF Symbols (native) |
-| `minimizeThreshold` | `double` | 0.1 | Scroll threshold (0–1) |
 | `collapseStartOffset` | `double` | 20.0 | Pixels before minimize applies (0 = immediate) |
+| `animationDuration` | `Duration` | 250ms | Animation duration for minimize/expand |
 | `forceCustomBar` | `bool` | false | Force custom bar on iOS 26+ |
 | `enableMinimize` | `bool` | true | Keep bar expanded if false |
 

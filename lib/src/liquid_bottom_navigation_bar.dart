@@ -33,6 +33,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final bool enableMinimize;
   /// Offset (px) after which minimize/expand logic is allowed. Set 0 for immediate.
   final double collapseStartOffset;
+  /// Animation duration for minimize/expand and item transitions.
+  final Duration animationDuration;
 
   LiquidBottomNavigationBar({
     super.key,
@@ -55,6 +57,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.bottomOffset = 0,
     this.enableMinimize = true,
     this.collapseStartOffset = 20.0,
+    this.animationDuration = const Duration(milliseconds: 250),
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
@@ -164,6 +167,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         bottomOffset: widget.bottomOffset,
         enableMinimize: widget.enableMinimize,
         collapseStartOffset: widget.collapseStartOffset,
+        animationDuration: widget.animationDuration,
       );
     }
 
@@ -225,6 +229,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                     'labelVisibility': widget.labelVisibility.name,
                     'bottomOffset': widget.bottomOffset,
                     'collapseStartOffset': widget.collapseStartOffset,
+                    'animationDurationMs': widget.animationDuration.inMilliseconds,
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -251,6 +256,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       bottomOffset: widget.bottomOffset,
       enableMinimize: widget.enableMinimize,
       collapseStartOffset: widget.collapseStartOffset,
+      animationDuration: widget.animationDuration,
     );
   }
 
@@ -263,7 +269,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         .invokeMethod('onScroll', {
           'offset': offset,
           'delta': delta,
-          'threshold': widget.minimizeThreshold,
         })
         .catchError((error) {
           debugPrint('❌ Send scroll error: $error');
@@ -287,6 +292,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final double bottomOffset;
   final bool enableMinimize;
   final double collapseStartOffset;
+  final Duration animationDuration;
 
   const _CustomLiquidBar({
     super.key,
@@ -304,6 +310,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.bottomOffset,
     required this.enableMinimize,
     required this.collapseStartOffset,
+    required this.animationDuration,
   });
 
   @override
@@ -353,29 +360,22 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (!_isCollapsed && DateTime.now().isBefore(_expandedLockUntil)) return;
     final double topSnapOffset =
         widget.collapseStartOffset.clamp(0, double.infinity);
-    // If collapseStartOffset is set (including 0), prefer it; otherwise fall back to threshold.
-    final double pixelThreshold = widget.collapseStartOffset > 0
-        ? widget.collapseStartOffset
-        : widget.minimizeThreshold * 1000;
+    final double pixelThreshold = topSnapOffset;
 
-    if (offset <= topSnapOffset) {
-      if (_isCollapsed) {
-        setState(() {
-          _isCollapsed = false;
-          _barOpacity = 1.0;
-        });
-      }
-      return;
-    }
+    // Ignore sudden large jumps (e.g., after tab switch)
+    if (delta.abs() > 120) return;
 
-    if (delta.abs() < 3.0) return;
-
-    if (offset > pixelThreshold && delta > 0 && !_isCollapsed) {
+    // Collapse after threshold on downward scroll
+    if (!_isCollapsed && delta > 4 && offset > pixelThreshold) {
       setState(() {
         _isCollapsed = true;
         _barOpacity = 1.0;
       });
-    } else if (delta < 0 && _isCollapsed && offset <= topSnapOffset) {
+      return;
+    }
+
+    // Expand only when we return to the top area
+    if (_isCollapsed && offset <= topSnapOffset) {
       setState(() {
         _isCollapsed = false;
         _barOpacity = 1.0;
@@ -437,7 +437,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
             Align(
               alignment: Alignment.bottomLeft,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+                duration: widget.animationDuration,
                 curve: Curves.easeInOut,
                 width: _isCollapsed ? widget.height : barWidthClamped,
                 child: ClipRRect(
@@ -489,9 +489,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                       widget.onTap?.call(index);
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
+                                      duration: widget.animationDuration,
                                       curve: Curves.easeInOut,
                                       margin: EdgeInsets.symmetric(
                                         horizontal: 4,
@@ -556,9 +554,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                         children: [
                                           AnimatedScale(
                                             scale: isSelected ? 1.05 : 1.0,
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
+                                            duration: widget.animationDuration,
                                             curve: Curves.easeInOut,
                                             child: IconTheme(
                                               data: IconThemeData(
@@ -641,7 +637,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                         child: Center(
                           child: AnimatedScale(
                             scale: isActionSelected ? 1.05 : 1.0,
-                            duration: const Duration(milliseconds: 300),
+                            duration: widget.animationDuration,
                             curve: Curves.easeInOut,
                             child: IconTheme(
                               data: IconThemeData(

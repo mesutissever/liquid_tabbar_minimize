@@ -68,6 +68,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var ignoreScrollUntil: Date = .distantPast
     private var expandedLockUntil: Date = .distantPast
     private var enableMinimize: Bool = true
+    private var labelVisibility: String = "always"
+    private var collapseStartOffset: Double = 20.0
 
     private var originalTabBarItems: [UITabBarItem]?
 
@@ -112,6 +114,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let selectedColor = Self.parseSelectedColor(args: args)
         let unselectedColor = Self.parseUnselectedColor(args: args)
         enableMinimize = Self.parseEnableMinimize(args: args)
+        labelVisibility = Self.parseLabelVisibility(args: args)
+        collapseStartOffset = Self.parseCollapseStartOffset(args: args)
         let bottomOffsetArg = Self.parseBottomOffset(args: args)
         selectedTintColor = selectedColor
         unselectedTintColor = unselectedColor
@@ -183,6 +187,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             let stacked = appearance.stackedLayoutAppearance
             originalTitleAttrsNormal = stacked.normal.titleTextAttributes
             originalTitleAttrsSelected = stacked.selected.titleTextAttributes
+            applyLabelVisibility(labelVisibility, to: appearance, selectedColor: selectedColor, unselectedColor: unselectedColor)
             tabBar.standardAppearance = appearance
             tabBar.scrollEdgeAppearance = appearance
             originalAppearance = appearance.copy() as? UITabBarAppearance
@@ -191,6 +196,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 item.setTitleTextAttributes([.foregroundColor: unselectedColor], for: .normal)
                 item.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
             }
+            applyLegacyLabelVisibility(tabBar, visibility: labelVisibility, selectedColor: selectedColor, unselectedColor: unselectedColor)
         }
 
         tabBar.layer.cornerRadius = 24
@@ -332,7 +338,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         if Date().timeIntervalSince(ignoreScrollUntil) < 0 { return }
         if !isMinimized && Date().timeIntervalSince(expandedLockUntil) < 0 { return }
         let pixelThreshold = threshold * 1000.0
-        let topSnapOffset: Double = 20.0
+        let topSnapOffset: Double = collapseStartOffset
 
         // Only expand near the very top; avoid reopening near the bottom
         if offset <= topSnapOffset {
@@ -561,6 +567,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             tabBar.scrollEdgeAppearance = ap
 
             tabBar.unselectedItemTintColor = unselectedTintColor
+            applyLabelVisibility(labelVisibility, to: ap, selectedColor: selectedTintColor, unselectedColor: unselectedTintColor)
+            tabBar.standardAppearance = ap
+            tabBar.scrollEdgeAppearance = ap
         } else {
             tabBar.items?.forEach { item in
                 item.titlePositionAdjustment = .zero
@@ -572,6 +581,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             if #available(iOS 13.0, *) {
                 tabBar.unselectedItemTintColor = unselectedTintColor
             }
+            applyLegacyLabelVisibility(tabBar, visibility: labelVisibility, selectedColor: selectedTintColor, unselectedColor: unselectedTintColor)
         }
 
         // Restore saved title strings
@@ -579,6 +589,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             if let saved = originalTitlesByTag[item.tag] {
                 item.title = saved
             }
+        }
+        if labelVisibility == "never" {
+            tabBar.items?.forEach { $0.title = "" }
         }
     }
 
@@ -682,12 +695,55 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         return UIColor(red: r, green: g, blue: b, alpha: max(a, 1.0))
     }
 
+    private func applyLabelVisibility(_ visibility: String, to appearance: UITabBarAppearance, selectedColor: UIColor, unselectedColor: UIColor) {
+        var normalAttrs = appearance.stackedLayoutAppearance.normal.titleTextAttributes
+        var selectedAttrs = appearance.stackedLayoutAppearance.selected.titleTextAttributes
+        switch visibility {
+        case "never":
+            normalAttrs[.foregroundColor] = UIColor.clear
+            selectedAttrs[.foregroundColor] = UIColor.clear
+        case "selectedOnly":
+            normalAttrs[.foregroundColor] = UIColor.clear
+            selectedAttrs[.foregroundColor] = selectedColor
+        default:
+            normalAttrs[.foregroundColor] = unselectedColor
+            selectedAttrs[.foregroundColor] = selectedColor
+        }
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttrs
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttrs
+        appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
+        appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
+    }
+
+    private func applyLegacyLabelVisibility(_ tabBar: UITabBar, visibility: String, selectedColor: UIColor, unselectedColor: UIColor) {
+        tabBar.items?.forEach { item in
+            switch visibility {
+            case "never":
+                item.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+                item.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .selected)
+            case "selectedOnly":
+                item.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+                item.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
+            default:
+                item.setTitleTextAttributes([.foregroundColor: unselectedColor], for: .normal)
+                item.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
+            }
+        }
+        if visibility == "never" {
+            tabBar.items?.forEach { $0.title = "" }
+        }
+    }
+
     static func parseLabelVisibility(args: Any?) -> String {
         (args as? [String: Any])?["labelVisibility"] as? String ?? "always"
     }
 
     static func parseBottomOffset(args: Any?) -> Double {
         (args as? [String: Any])?["bottomOffset"] as? Double ?? 0
+    }
+
+    static func parseCollapseStartOffset(args: Any?) -> Double {
+        (args as? [String: Any])?["collapseStartOffset"] as? Double ?? 20.0
     }
 
     static func defaultItems() -> [NativeTabItemData] {

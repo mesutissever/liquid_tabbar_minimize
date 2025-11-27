@@ -31,6 +31,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final double bottomOffset;
   /// Enable/disable scroll-based minimize/expand behavior.
   final bool enableMinimize;
+  /// Offset (px) after which minimize/expand logic is allowed. Set 0 for immediate.
+  final double collapseStartOffset;
 
   LiquidBottomNavigationBar({
     super.key,
@@ -52,6 +54,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.forceCustomBar = false, // Use custom bar even on iOS 26+
     this.bottomOffset = 0,
     this.enableMinimize = true,
+    this.collapseStartOffset = 20.0,
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
@@ -160,6 +163,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         minimizeThreshold: widget.minimizeThreshold,
         bottomOffset: widget.bottomOffset,
         enableMinimize: widget.enableMinimize,
+        collapseStartOffset: widget.collapseStartOffset,
       );
     }
 
@@ -220,6 +224,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                     'enableMinimize': widget.enableMinimize,
                     'labelVisibility': widget.labelVisibility.name,
                     'bottomOffset': widget.bottomOffset,
+                    'collapseStartOffset': widget.collapseStartOffset,
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -245,6 +250,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       minimizeThreshold: widget.minimizeThreshold,
       bottomOffset: widget.bottomOffset,
       enableMinimize: widget.enableMinimize,
+      collapseStartOffset: widget.collapseStartOffset,
     );
   }
 
@@ -280,6 +286,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final double minimizeThreshold;
   final double bottomOffset;
   final bool enableMinimize;
+  final double collapseStartOffset;
 
   const _CustomLiquidBar({
     super.key,
@@ -296,6 +303,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.minimizeThreshold,
     required this.bottomOffset,
     required this.enableMinimize,
+    required this.collapseStartOffset,
   });
 
   @override
@@ -343,7 +351,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (!widget.enableMinimize) return;
     if (DateTime.now().isBefore(_ignoreScrollUntil)) return;
     if (!_isCollapsed && DateTime.now().isBefore(_expandedLockUntil)) return;
-    const double topSnapOffset = 20.0;
+    final double topSnapOffset = widget.collapseStartOffset.clamp(0, double.infinity);
     final threshold = widget.minimizeThreshold * 1000;
 
     if (offset <= topSnapOffset) {

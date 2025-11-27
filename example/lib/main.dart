@@ -70,6 +70,27 @@ class _HomePageState extends State<HomePage> {
     LiquidBottomNavigationBar.handleScroll(offset, delta);
   }
 
+  void _stopCurrentScrollMomentum() {
+    ScrollController? controller;
+    switch (_selectedIndex) {
+      case 0:
+        controller = _homeScrollController;
+      case 1:
+        controller = _exploreScrollController;
+      case 2:
+        controller = _favoritesScrollController;
+      case 3:
+        controller = _settingsScrollController;
+    }
+    if (controller != null && controller.hasClients) {
+      controller.animateTo(
+        controller.offset,
+        duration: Duration.zero,
+        curve: Curves.linear,
+      );
+    }
+  }
+
   // iOS 26+ SF Symbol mapping
   String _iconToSFSymbol(IconData icon) {
     if (icon == Icons.home) return 'house.fill';
@@ -321,6 +342,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       bottomNavigationBar: LiquidBottomNavigationBar(
+        enableMinimize: true,
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() => _selectedIndex = index);
@@ -341,13 +363,14 @@ class _HomePageState extends State<HomePage> {
         actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
         onActionTap: () {
           debugPrint('Search tapped!');
+          _stopCurrentScrollMomentum();
           setState(() {
             _selectedIndex = 4;
             _lastScrollOffset = 0;
           });
         },
         selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.white,
         labelVisibility: LabelVisibility.always,
         height: 68,
         forceCustomBar: false,

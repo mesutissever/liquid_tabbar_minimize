@@ -60,7 +60,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var originalTitleAttrsSelected: [NSAttributedString.Key: Any] = [:]
     private var originalAppearance: UITabBarAppearance?
     private var selectedTintColor: UIColor = .systemBlue
+    private var unselectedTintColor: UIColor = UIColor.label.withAlphaComponent(0.7)
     private var savedSelectedTag: Int?
+    private var expandTapRecognizer: UITapGestureRecognizer?
+    private var isTransitioning = false
+    private var lastToggleDate: Date = .distantPast
+    private var ignoreScrollUntil: Date = .distantPast
+    private var expandedLockUntil: Date = .distantPast
+    private var enableMinimize: Bool = true
 
     private var originalTabBarItems: [UITabBarItem]?
 
@@ -103,8 +110,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let includeAction = Self.parseActionFlag(args: args)
         let actionSymbol = Self.parseActionSymbol(args: args)
         let selectedColor = Self.parseSelectedColor(args: args)
+        let unselectedColor = Self.parseUnselectedColor(args: args)
+        enableMinimize = Self.parseEnableMinimize(args: args)
         let bottomOffsetArg = Self.parseBottomOffset(args: args)
         selectedTintColor = selectedColor
+        unselectedTintColor = unselectedColor
         let initialIndex = (args as? [String: Any])?["initialIndex"] as? Int ?? 0
         actionButtonSize = max(64, UITabBar().sizeThatFits(.zero).height)
         let pillWidth = includeAction ? (actionButtonSize + 20) : 0
@@ -118,6 +128,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let tabController = UITabBarController()
         tabController.delegate = self
         tabController.tabBar.tintColor = selectedColor
+
+        if #available(iOS 13.0, *) {
+            tabController.tabBar.unselectedItemTintColor = unselectedColor
+        }
 
         var controllers: [UIViewController] = items.map { item in
             let vc = UIViewController()
@@ -147,18 +161,36 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         tabBar.barTintColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
+        if #available(iOS 13.0, *) {
+            tabBar.unselectedItemTintColor = unselectedColor
+        }
 
         if #available(iOS 15.0, *) {
             let appearance = UITabBarAppearance()
             appearance.configureWithTransparentBackground()
             appearance.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
             appearance.backgroundColor = UIColor.black.withAlphaComponent(0.15)
+            var normalAttrs = appearance.stackedLayoutAppearance.normal.titleTextAttributes
+            var selectedAttrs = appearance.stackedLayoutAppearance.selected.titleTextAttributes
+            normalAttrs[.foregroundColor] = unselectedColor
+            selectedAttrs[.foregroundColor] = selectedColor
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = normalAttrs
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttrs
+            appearance.stackedLayoutAppearance.normal.iconColor = unselectedColor
+            appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
+            appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
+            appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
             let stacked = appearance.stackedLayoutAppearance
             originalTitleAttrsNormal = stacked.normal.titleTextAttributes
             originalTitleAttrsSelected = stacked.selected.titleTextAttributes
             tabBar.standardAppearance = appearance
             tabBar.scrollEdgeAppearance = appearance
             originalAppearance = appearance.copy() as? UITabBarAppearance
+        } else {
+            tabBar.items?.forEach { item in
+                item.setTitleTextAttributes([.foregroundColor: unselectedColor], for: .normal)
+                item.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
+            }
         }
 
         tabBar.layer.cornerRadius = 24
@@ -238,7 +270,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionBar.backgroundImage = UIImage()
             actionBar.shadowImage = UIImage()
             actionBar.tintColor = selectedColor
-            actionBar.unselectedItemTintColor = selectedColor
+            if #available(iOS 13.0, *) {
+                actionBar.unselectedItemTintColor = unselectedColor
+            }
             actionBar.items = [
                 UITabBarItem(
                     title: nil,
@@ -293,20 +327,29 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     func view() -> UIView { container }
 
     private func handleScroll(offset: Double, delta: Double, threshold: Double) {
-        guard let wrapper = tabBarWrapper else { return }
+        guard enableMinimize else { return }
+        guard let wrapper = tabBarWrapper, !isTransitioning else { return }
+        if Date().timeIntervalSince(ignoreScrollUntil) < 0 { return }
+        if !isMinimized && Date().timeIntervalSince(expandedLockUntil) < 0 { return }
         let pixelThreshold = threshold * 1000.0
+        let topSnapOffset: Double = 20.0
 
-        if offset <= 0 {
+        // Sadece en başa yakınken expand et; aşağıda veya sayfa sonuna yakınken açma
+        if offset <= topSnapOffset {
             expandTabBar(wrapper)
         } else if delta > 0 && offset > pixelThreshold && !isMinimized {
             collapseTabBar(wrapper)
-        } else if delta < 0 && isMinimized {
+        } else if delta < 0 && isMinimized && offset <= topSnapOffset {
             expandTabBar(wrapper)
         }
     }
 
     private func collapseTabBar(_ wrapper: UIView) {
+        guard enableMinimize else { return }
         guard !isMinimized, let tbc = tabBarController, let wrapperView = tabBarWrapper else { return }
+        if isTransitioning || Date().timeIntervalSince(lastToggleDate) < 0.2 { return }
+        isTransitioning = true
+        lastToggleDate = Date()
         print("COLLAPSE iOS")
         isMinimized = true
 
@@ -356,13 +399,33 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             wrapperView.alpha = 1.0
             wrapperView.layoutIfNeeded()
             self.container.layoutIfNeeded()
+        } completion: { _ in
+            self.isTransitioning = false
+        }
+
+        // Tekrar dokunulduğunda expand etmek için tap recognizer ekle
+        if expandTapRecognizer == nil {
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleCollapsedTap))
+            tap.cancelsTouchesInView = false
+            wrapper.addGestureRecognizer(tap)
+            expandTapRecognizer = tap
         }
     }
 
     private func expandTabBar(_ wrapper: UIView) {
+        guard enableMinimize else { return }
         guard isMinimized, let tbc = tabBarController, let wrapperView = tabBarWrapper else { return }
+        if isTransitioning || Date().timeIntervalSince(lastToggleDate) < 0.2 { return }
+        isTransitioning = true
+        lastToggleDate = Date()
         print("EXPAND iOS")
         isMinimized = false
+
+        // Tap recognizer artık gerekmediği için kaldır
+        if let tap = expandTapRecognizer {
+            wrapper.removeGestureRecognizer(tap)
+            expandTapRecognizer = nil
+        }
 
         // Kenar boşluklarını expanded moda döndür
         if let leadExp = expandedLeading, let trailExp = expandedTrailing,
@@ -416,6 +479,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             wrapperView.layoutIfNeeded()
             self.container.layoutIfNeeded()
         }, completion: { _ in
+            self.isTransitioning = false
             // Animasyon BİTTİKTEN sonra reselection ve otomatik yerleşimi zorlama
             if let vcs = tbc.viewControllers {
                 let savedIdx = tbc.selectedIndex
@@ -436,6 +500,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 tbc.tabBar.layoutIfNeeded()
             }
         })
+    }
+
+    @objc private func handleCollapsedTap() {
+        guard let wrapper = tabBarWrapper, isMinimized else { return }
+        expandTabBar(wrapper)
+        ignoreScrollUntil = Date().addingTimeInterval(0.4)
+        expandedLockUntil = Date().addingTimeInterval(0.6)
     }
 
     // Collapse: Başlığı title="" ile gizle (appearance cache sorunlarını atlatır)
@@ -473,12 +544,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             // Başlıkları görünür kıl
             var normalAttrs = ap.stackedLayoutAppearance.normal.titleTextAttributes
             var selectedAttrs = ap.stackedLayoutAppearance.selected.titleTextAttributes
-            normalAttrs[.foregroundColor] = UIColor.label
+            normalAttrs[.foregroundColor] = unselectedTintColor
             selectedAttrs[.foregroundColor] = selectedTintColor
             ap.stackedLayoutAppearance.normal.titleTextAttributes = normalAttrs
             ap.stackedLayoutAppearance.selected.titleTextAttributes = selectedAttrs
             ap.stackedLayoutAppearance.normal.titlePositionAdjustment = .zero
             ap.stackedLayoutAppearance.selected.titlePositionAdjustment = .zero
+            ap.stackedLayoutAppearance.normal.iconColor = unselectedTintColor
+            ap.stackedLayoutAppearance.selected.iconColor = selectedTintColor
 
             // Landscape eşitle
             ap.inlineLayoutAppearance = ap.stackedLayoutAppearance
@@ -487,14 +560,17 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             tabBar.standardAppearance = ap
             tabBar.scrollEdgeAppearance = ap
 
-            tabBar.unselectedItemTintColor = UIColor.label.withAlphaComponent(0.7)
+            tabBar.unselectedItemTintColor = unselectedTintColor
         } else {
             tabBar.items?.forEach { item in
                 item.titlePositionAdjustment = .zero
-                let normal = originalTitleAttrsNormal.isEmpty ? [.foregroundColor: UIColor.label] : originalTitleAttrsNormal
+                let normal = originalTitleAttrsNormal.isEmpty ? [.foregroundColor: unselectedTintColor] : originalTitleAttrsNormal
                 let selected = originalTitleAttrsSelected.isEmpty ? [.foregroundColor: selectedTintColor] : originalTitleAttrsSelected
                 item.setTitleTextAttributes(normal, for: .normal)
                 item.setTitleTextAttributes(selected, for: .selected)
+            }
+            if #available(iOS 13.0, *) {
+                tabBar.unselectedItemTintColor = unselectedTintColor
             }
         }
 
@@ -509,6 +585,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     // Tab seçimlerini Flutter'a yansıt
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         let tag = viewController.tabBarItem.tag
+        // Minimized durumunda herhangi bir sekmeye dokunulduğunda önce genişlet
+        if isMinimized, let wrapper = tabBarWrapper {
+            expandTabBar(wrapper)
+            ignoreScrollUntil = Date().addingTimeInterval(0.4)
+        }
+        // Expand durumunda da kısa süre collapse'a izin verme
+        expandedLockUntil = Date().addingTimeInterval(0.6)
         // Any normal tab tap should clear action pill selection state.
         actionTabBar?.selectedItem = nil
         eventChannel.invokeMethod("onTabChanged", arguments: tag)
@@ -519,6 +602,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         if tabBar == actionTabBar && item.tag == -1 {
             eventChannel.invokeMethod("onActionTapped", arguments: nil)
             tabBar.selectedItem = nil
+            ignoreScrollUntil = Date().addingTimeInterval(0.4)
+            expandedLockUntil = Date().addingTimeInterval(0.6)
         }
     }
 
@@ -561,11 +646,31 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         return symbol
     }
 
+    static func parseEnableMinimize(args: Any?) -> Bool {
+        guard let dict = args as? [String: Any],
+              let flag = dict["enableMinimize"] as? Bool else {
+            return true
+        }
+        return flag
+    }
+
     static func parseSelectedColor(args: Any?) -> UIColor {
         guard let dict = args as? [String: Any],
               let hexString = dict["selectedColorHex"] as? String else {
             return UIColor.systemBlue
         }
+        return color(from: hexString) ?? UIColor.systemBlue
+    }
+
+    static func parseUnselectedColor(args: Any?) -> UIColor {
+        guard let dict = args as? [String: Any],
+              let hexString = dict["unselectedColorHex"] as? String else {
+            return UIColor.label.withAlphaComponent(0.7)
+        }
+        return color(from: hexString) ?? UIColor.label.withAlphaComponent(0.7)
+    }
+
+    private static func color(from hexString: String) -> UIColor? {
         var hex = hexString.replacingOccurrences(of: "#", with: "")
         if hex.count == 6 { hex = "FF" + hex }
         var rgbValue: UInt64 = 0

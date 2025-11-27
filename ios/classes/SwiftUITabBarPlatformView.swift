@@ -337,7 +337,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         guard let wrapper = tabBarWrapper, !isTransitioning else { return }
         if Date().timeIntervalSince(ignoreScrollUntil) < 0 { return }
         if !isMinimized && Date().timeIntervalSince(expandedLockUntil) < 0 { return }
-        let pixelThreshold = threshold * 1000.0
+        // If collapseStartOffset is provided (including 0), prefer it; otherwise use threshold.
+        let pixelThreshold = collapseStartOffset > 0 ? collapseStartOffset : threshold * 1000.0
         let topSnapOffset: Double = collapseStartOffset
 
         // Only expand near the very top; avoid reopening near the bottom

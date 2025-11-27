@@ -351,8 +351,12 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (!widget.enableMinimize) return;
     if (DateTime.now().isBefore(_ignoreScrollUntil)) return;
     if (!_isCollapsed && DateTime.now().isBefore(_expandedLockUntil)) return;
-    final double topSnapOffset = widget.collapseStartOffset.clamp(0, double.infinity);
-    final threshold = widget.minimizeThreshold * 1000;
+    final double topSnapOffset =
+        widget.collapseStartOffset.clamp(0, double.infinity);
+    // If collapseStartOffset is set (including 0), prefer it; otherwise fall back to threshold.
+    final double pixelThreshold = widget.collapseStartOffset > 0
+        ? widget.collapseStartOffset
+        : widget.minimizeThreshold * 1000;
 
     if (offset <= topSnapOffset) {
       if (_isCollapsed) {
@@ -366,7 +370,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
 
     if (delta.abs() < 3.0) return;
 
-    if (offset > threshold && delta > 0 && !_isCollapsed) {
+    if (offset > pixelThreshold && delta > 0 && !_isCollapsed) {
       setState(() {
         _isCollapsed = true;
         _barOpacity = 1.0;

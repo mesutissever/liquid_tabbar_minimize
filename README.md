@@ -21,6 +21,7 @@ A beautiful, customizable Flutter tab bar with scroll-to-minimize behavior. Auto
 - Smooth collapse animation on scroll down
 - Expand on scroll up
 - Adjustable threshold
+- Can be disabled entirely with `enableMinimize`
 
 🚀 **Easy to Use**
 - Simple API
@@ -77,10 +78,6 @@ LiquidBottomNavigationBar(
     BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
     BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
   ],
-  pages: [HomePage(), ExplorePage(), FavoritesPage(), SettingsPage()],
-  
-  // iOS 26+ native support
-  itemCounts: const [10, 50, 50, 50], // Item counts for native iOS data
   sfSymbolMapper: (icon) {
     if (icon == Icons.home) return 'house.fill';
     if (icon == Icons.explore) return 'globe';
@@ -101,6 +98,7 @@ LiquidBottomNavigationBar(
   // Scroll minimize settings
   minimizeThreshold: 0.1, // 10% scroll threshold
   forceCustomBar: false, // Use custom bar even on iOS 26+
+  enableMinimize: true, // Set false to keep the bar always expanded
 )
 ```
 
@@ -138,8 +136,6 @@ class _PageState extends State<Page> {
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `currentIndex` | `int` | required | Currently selected tab index |
-| `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5 items) |
-| `pages` | `List<Widget>` | required | Page widgets for each tab |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
 | `selectedItemColor` | `Color?` | primary | Color for selected tab |
 | `unselectedItemColor` | `Color?` | grey | Color for unselected tabs |
@@ -148,10 +144,10 @@ class _PageState extends State<Page> {
 | `showActionButton` | `bool` | false | Show optional action button |
 | `actionIcon` | `(Icon, String)?` | null | Action button icon (Flutter icon, SF Symbol) |
 | `onActionTap` | `VoidCallback?` | null | Action button callback |
-| `itemCounts` | `List<int>?` | null | Item counts for iOS 26+ native data |
 | `sfSymbolMapper` | `Function?` | null | Map IconData to SF Symbols |
 | `minimizeThreshold` | `double` | 0.1 | Scroll threshold (0.0-1.0) |
 | `forceCustomBar` | `bool` | false | Force custom bar on iOS 26+ |
+| `enableMinimize` | `bool` | true | Disable to keep the bar always expanded |
 
 ## Label Visibility
 

@@ -1,16 +1,19 @@
-# liquid_tabbar_minimize_example
+# Example App
 
-Demonstrates how to use the liquid_tabbar_minimize plugin.
+This app showcases `liquid_tabbar_minimize` with:
+- Custom vs native iOS tab bar (auto-detects iOS 26+)
+- Action button that switches to a search tab
+- Scroll-to-minimize with sample lists/grids
+- Configurable colors, label visibility, and `enableMinimize` toggle
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```bash
+cd example
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Change the tab bar behavior in `example/lib/main.dart`:
+- `enableMinimize: false` to keep the bar always expanded
+- `forceCustomBar: true` to bypass native iOS bar (use custom everywhere)
+- `selectedItemColor` / `unselectedItemColor` to recolor tabs and action button

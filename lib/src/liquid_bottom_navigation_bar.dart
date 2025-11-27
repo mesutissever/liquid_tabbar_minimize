@@ -25,10 +25,12 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final Color? unselectedItemColor;
   final ValueChanged<double>? onScroll;
   final LabelVisibility labelVisibility;
-  final double minimizeThreshold; // Scroll threshold (örn: 0.1 = %10)
-  final bool forceCustomBar; // Native'i devre dışı bırak
+  final double minimizeThreshold; // Scroll threshold (e.g. 0.1 = 10%)
+  final bool forceCustomBar; // Force the custom bar instead of native
   /// Bottom offset to lift bar from home indicator. 0 = flush.
   final double bottomOffset;
+  /// Enable/disable scroll-based minimize/expand behavior.
+  final bool enableMinimize;
 
   LiquidBottomNavigationBar({
     super.key,
@@ -46,9 +48,10 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.unselectedItemColor,
     this.onScroll,
     this.labelVisibility = LabelVisibility.always,
-    this.minimizeThreshold = 0.1, // Default %10
-    this.forceCustomBar = false, // iOS 26'da bile custom bar kullan
+    this.minimizeThreshold = 0.1, // Default 10%
+    this.forceCustomBar = false, // Use custom bar even on iOS 26+
     this.bottomOffset = 0,
+    this.enableMinimize = true,
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
@@ -112,7 +115,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   }
 
   Future<void> _checkIOSVersion() async {
-    // iOS 26+ native; diğerlerinde custom. forceCustomBar her zaman custom'a geçirir.
+    // iOS 26+ uses native; others fall back to custom unless forceCustomBar is set.
     if (widget.forceCustomBar) {
       setState(() {
         _useNative = false;
@@ -156,14 +159,21 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
         labelVisibility: widget.labelVisibility,
         minimizeThreshold: widget.minimizeThreshold,
         bottomOffset: widget.bottomOffset,
+        enableMinimize: widget.enableMinimize,
       );
     }
 
     if (_useNative && Theme.of(context).platform == TargetPlatform.iOS) {
       final theme = Theme.of(context);
+      final isDark = theme.brightness == Brightness.dark;
       final actionSFSymbol = widget.actionIcon?.$2 ?? 'magnifyingglass';
       final selectedColor =
           widget.selectedItemColor ?? theme.colorScheme.primary;
+      final unselectedColor =
+          widget.unselectedItemColor ??
+          (isDark
+              ? Colors.white.withValues(alpha: 0.6)
+              : Colors.black.withValues(alpha: 0.5));
 
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -205,6 +215,9 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                     'actionSymbol': actionSFSymbol,
                     'selectedColorHex':
                         '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                    'unselectedColorHex':
+                        '#${unselectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                    'enableMinimize': widget.enableMinimize,
                     'labelVisibility': widget.labelVisibility.name,
                     'bottomOffset': widget.bottomOffset,
                   },
@@ -231,11 +244,12 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       labelVisibility: widget.labelVisibility,
       minimizeThreshold: widget.minimizeThreshold,
       bottomOffset: widget.bottomOffset,
+      enableMinimize: widget.enableMinimize,
     );
   }
 
   void _sendScrollToNative(double offset, double delta) {
-    if (_scrollChannel == null) {
+    if (_scrollChannel == null || !widget.enableMinimize) {
       debugPrint('⚠️ Scroll channel not ready yet');
       return;
     }
@@ -265,6 +279,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final LabelVisibility labelVisibility;
   final double minimizeThreshold;
   final double bottomOffset;
+  final bool enableMinimize;
 
   const _CustomLiquidBar({
     super.key,
@@ -280,6 +295,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.labelVisibility,
     required this.minimizeThreshold,
     required this.bottomOffset,
+    required this.enableMinimize,
   });
 
   @override
@@ -291,6 +307,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   bool _isCollapsed = false;
   MethodChannel? _nativeChannel;
   int? _viewId;
+  DateTime _ignoreScrollUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _expandedLockUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -298,15 +316,37 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     _initNativeChannel();
   }
 
+  @override
+  void didUpdateWidget(covariant _CustomLiquidBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enableMinimize && _isCollapsed) {
+      setState(() {
+        _isCollapsed = false;
+      });
+    }
+  }
+
   void _initNativeChannel() {
     _viewId = DateTime.now().millisecondsSinceEpoch;
     _nativeChannel = MethodChannel('liquid_tabbar_minimize/methods_$_viewId');
   }
 
+  void _pauseScrollHandling(Duration duration) {
+    _ignoreScrollUntil = DateTime.now().add(duration);
+  }
+
+  void _lockExpanded(Duration duration) {
+    _expandedLockUntil = DateTime.now().add(duration);
+  }
+
   void handleScroll(double offset, double delta) {
+    if (!widget.enableMinimize) return;
+    if (DateTime.now().isBefore(_ignoreScrollUntil)) return;
+    if (!_isCollapsed && DateTime.now().isBefore(_expandedLockUntil)) return;
+    const double topSnapOffset = 20.0;
     final threshold = widget.minimizeThreshold * 1000;
 
-    if (offset <= 50) {
+    if (offset <= topSnapOffset) {
       if (_isCollapsed) {
         setState(() {
           _isCollapsed = false;
@@ -323,7 +363,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
         _isCollapsed = true;
         _barOpacity = 1.0;
       });
-    } else if (delta < 0 && _isCollapsed) {
+    } else if (delta < 0 && _isCollapsed && offset <= topSnapOffset) {
       setState(() {
         _isCollapsed = false;
         _barOpacity = 1.0;
@@ -429,7 +469,13 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                 final isSelected = widget.currentIndex == index;
                                 return Expanded(
                                   child: GestureDetector(
-                                    onTap: () => widget.onTap?.call(index),
+                                    onTap: () {
+                                      _pauseScrollHandling(
+                                        const Duration(milliseconds: 1200),
+                                      );
+                                      _lockExpanded(const Duration(milliseconds: 1200));
+                                      widget.onTap?.call(index);
+                                    },
                                     child: AnimatedContainer(
                                       duration: const Duration(
                                         milliseconds: 300,
@@ -549,7 +595,11 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
               Align(
                 alignment: Alignment.bottomRight,
                 child: GestureDetector(
-                  onTap: widget.onActionTap,
+                  onTap: () {
+                    _pauseScrollHandling(const Duration(milliseconds: 1200));
+                    _lockExpanded(const Duration(milliseconds: 1200));
+                    widget.onActionTap?.call();
+                  },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(36),
                     child: BackdropFilter(
@@ -583,17 +633,14 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                             curve: Curves.easeInOut,
                             child: IconTheme(
                               data: IconThemeData(
-                                size: 24,
+                                size: 40,
                                 color: isActionSelected
                                     ? selectedColor
-                                    : (isDark
-                                          ? Colors.white.withValues(alpha: 0.6)
-                                          : Colors.black.withValues(
-                                              alpha: 0.5,
-                                            )),
+                                    : unselectedColor,
                               ),
                               child:
-                                  widget.actionIcon ?? const Icon(Icons.search),
+                                  widget.actionIcon ??
+                                  Icon(Icons.search, color: selectedColor),
                             ),
                           ),
                         ),

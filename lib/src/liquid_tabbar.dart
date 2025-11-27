@@ -248,16 +248,15 @@ class _CustomScrollMinimizeTabBarState
                     child: Container(
                       height: widget.tabBarHeight,
                       decoration: BoxDecoration(
-                        color:
-                            (theme.brightness == Brightness.dark
-                                    ? Colors.black.withOpacity(0.5)
-                                    : Colors.white.withOpacity(0.7))
-                                .withOpacity(0.8),
+                        color: (theme.brightness == Brightness.dark
+                                ? Colors.black.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.7))
+                            .withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
                           color: theme.brightness == Brightness.dark
-                              ? Colors.white.withOpacity(0.15)
-                              : Colors.black.withOpacity(0.08),
+                              ? Colors.white.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.08),
                           width: 1,
                         ),
                       ),
@@ -288,18 +287,23 @@ class _CustomScrollMinimizeTabBarState
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? (theme.brightness == Brightness.dark
-                                              ? Colors.white.withOpacity(0.15)
-                                              : Colors.black.withOpacity(0.08))
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.15,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                ))
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(18),
                                     border: isSelected
                                         ? Border.all(
-                                            color:
-                                                theme.brightness ==
+                                            color: theme.brightness ==
                                                     Brightness.dark
-                                                ? Colors.white.withOpacity(0.25)
-                                                : Colors.black.withOpacity(
-                                                    0.12,
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.25,
+                                                  )
+                                                : Colors.black.withValues(
+                                                    alpha: 0.12,
                                                   ),
                                             width: 0.5,
                                           )
@@ -315,11 +319,11 @@ class _CustomScrollMinimizeTabBarState
                                             ? theme.colorScheme.primary
                                             : (theme.brightness ==
                                                       Brightness.dark
-                                                  ? Colors.white.withOpacity(
-                                                      0.7,
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.7,
                                                     )
-                                                  : Colors.black.withOpacity(
-                                                      0.6,
+                                                  : Colors.black.withValues(
+                                                      alpha: 0.6,
                                                     )),
                                       ),
                                       if (item.label.isNotEmpty) ...[
@@ -336,9 +340,13 @@ class _CustomScrollMinimizeTabBarState
                                                 : (theme.brightness ==
                                                           Brightness.dark
                                                       ? Colors.white
-                                                            .withOpacity(0.7)
+                                                            .withValues(
+                                                            alpha: 0.7,
+                                                          )
                                                       : Colors.black
-                                                            .withOpacity(0.6)),
+                                                            .withValues(
+                                                            alpha: 0.6,
+                                                          )),
                                           ),
                                         ),
                                       ],
@@ -376,18 +384,19 @@ class _CustomScrollMinimizeTabBarState
                         height: widget.tabBarHeight,
                         decoration: BoxDecoration(
                           color: _currentIndex == widget.items.length
-                              ? theme.colorScheme.primary.withOpacity(0.2)
+                              ? theme.colorScheme.primary.withValues(alpha: 0.2)
                               : (theme.brightness == Brightness.dark
-                                        ? Colors.black.withOpacity(0.5)
-                                        : Colors.white.withOpacity(0.7))
-                                    .withOpacity(0.8),
+                                        ? Colors.black.withValues(alpha: 0.5)
+                                        : Colors.white.withValues(alpha: 0.7))
+                                    .withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
                             color: _currentIndex == widget.items.length
-                                ? theme.colorScheme.primary.withOpacity(0.4)
+                                ? theme.colorScheme.primary
+                                    .withValues(alpha: 0.4)
                                 : (theme.brightness == Brightness.dark
-                                      ? Colors.white.withOpacity(0.15)
-                                      : Colors.black.withOpacity(0.08)),
+                                      ? Colors.white.withValues(alpha: 0.15)
+                                      : Colors.black.withValues(alpha: 0.08)),
                             width: 1,
                           ),
                         ),
@@ -397,8 +406,8 @@ class _CustomScrollMinimizeTabBarState
                           color: _currentIndex == widget.items.length
                               ? theme.colorScheme.primary
                               : (theme.brightness == Brightness.dark
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.black.withOpacity(0.6)),
+                                    ? Colors.white.withValues(alpha: 0.7)
+                                    : Colors.black.withValues(alpha: 0.6)),
                         ),
                       ),
                     ),

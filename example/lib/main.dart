@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
 
 void main() => runApp(const MyApp());

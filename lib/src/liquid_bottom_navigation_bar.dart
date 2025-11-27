@@ -4,8 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'liquid_tab_item.dart';
-
 /// Label visibility mode
 enum LabelVisibility { selectedOnly, always, never }
 
@@ -29,14 +27,17 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final bool forceCustomBar; // Force the custom bar instead of native
   /// Bottom offset to lift bar from home indicator. 0 = flush.
   final double bottomOffset;
+
   /// Enable/disable scroll-based minimize/expand behavior.
   final bool enableMinimize;
+
   /// Offset (px) after which minimize/expand logic is allowed. Set 0 for immediate.
   final double collapseStartOffset;
+
   /// Animation duration for minimize/expand and item transitions.
   final Duration animationDuration;
 
-  LiquidBottomNavigationBar({
+  const LiquidBottomNavigationBar({
     super.key,
     required this.currentIndex,
     required this.items,
@@ -61,13 +62,13 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
-  static final GlobalKey<_CustomLiquidBarState> barKey = GlobalKey();
+  static final GlobalKey barKey = GlobalKey();
   static _LiquidBottomNavigationBarState? _nativeState;
 
   static void handleScroll(double offset, double delta) {
-    final customState = barKey.currentState;
-    if (customState != null) {
-      customState.handleScroll(offset, delta);
+    final state = barKey.currentState;
+    if (state is _CustomLiquidBarState) {
+      state.handleScroll(offset, delta);
       return;
     }
 
@@ -84,7 +85,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   bool _isChecking = true;
   MethodChannel? _eventChannel;
   MethodChannel? _scrollChannel;
-  int? _platformViewId;
   double _lastScrollOffset = 0.0;
 
   @override
@@ -182,6 +182,11 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
           (isDark
               ? Colors.white.withValues(alpha: 0.6)
               : Colors.black.withValues(alpha: 0.5));
+      String toHex(Color c) {
+        // ignore: deprecated_member_use
+        final hex = c.value.toRadixString(16).padLeft(8, '0');
+        return '#$hex';
+      }
 
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -206,7 +211,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                 child: UiKitView(
                   viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
                   onPlatformViewCreated: (id) {
-                    _platformViewId = id;
                     _scrollChannel = MethodChannel(
                       'liquid_tabbar_minimize/scroll_$id',
                     );
@@ -221,15 +225,14 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
                     'initialIndex': widget.currentIndex,
                     'enableActionTab': widget.showActionButton,
                     'actionSymbol': actionSFSymbol,
-                    'selectedColorHex':
-                        '#${selectedColor.value.toRadixString(16).padLeft(8, '0')}',
-                    'unselectedColorHex':
-                        '#${unselectedColor.value.toRadixString(16).padLeft(8, '0')}',
+                    'selectedColorHex': toHex(selectedColor),
+                    'unselectedColorHex': toHex(unselectedColor),
                     'enableMinimize': widget.enableMinimize,
                     'labelVisibility': widget.labelVisibility.name,
                     'bottomOffset': widget.bottomOffset,
                     'collapseStartOffset': widget.collapseStartOffset,
-                    'animationDurationMs': widget.animationDuration.inMilliseconds,
+                    'animationDurationMs':
+                        widget.animationDuration.inMilliseconds,
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -266,10 +269,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       return;
     }
     _scrollChannel!
-        .invokeMethod('onScroll', {
-          'offset': offset,
-          'delta': delta,
-        })
+        .invokeMethod('onScroll', {'offset': offset, 'delta': delta})
         .catchError((error) {
           debugPrint('❌ Send scroll error: $error');
         });
@@ -318,7 +318,6 @@ class _CustomLiquidBar extends StatefulWidget {
 }
 
 class _CustomLiquidBarState extends State<_CustomLiquidBar> {
-  double _barOpacity = 1.0;
   bool _isCollapsed = false;
   MethodChannel? _nativeChannel;
   int? _viewId;
@@ -358,8 +357,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (!widget.enableMinimize) return;
     if (DateTime.now().isBefore(_ignoreScrollUntil)) return;
     if (!_isCollapsed && DateTime.now().isBefore(_expandedLockUntil)) return;
-    final double topSnapOffset =
-        widget.collapseStartOffset.clamp(0, double.infinity);
+    final double topSnapOffset = widget.collapseStartOffset.clamp(
+      0,
+      double.infinity,
+    );
     final double pixelThreshold = topSnapOffset;
 
     // Ignore sudden large jumps (e.g., after tab switch)
@@ -369,7 +370,6 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (!_isCollapsed && delta > 4 && offset > pixelThreshold) {
       setState(() {
         _isCollapsed = true;
-        _barOpacity = 1.0;
       });
       return;
     }
@@ -378,7 +378,6 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (_isCollapsed && offset <= topSnapOffset) {
       setState(() {
         _isCollapsed = false;
-        _barOpacity = 1.0;
       });
     }
   }
@@ -427,7 +426,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     final double bottomGap =
         widget.bottomOffset + 16; // lift both slightly from home indicator
 
-    return Container(
+    return SizedBox(
       height: widget.height + bottomGap,
       child: Padding(
         padding: EdgeInsets.only(left: 16, right: 16, bottom: bottomGap),
@@ -485,7 +484,9 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                       _pauseScrollHandling(
                                         const Duration(milliseconds: 1200),
                                       );
-                                      _lockExpanded(const Duration(milliseconds: 1200));
+                                      _lockExpanded(
+                                        const Duration(milliseconds: 1200),
+                                      );
                                       widget.onTap?.call(index);
                                     },
                                     child: AnimatedContainer(

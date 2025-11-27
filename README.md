@@ -1,51 +1,26 @@
 # Liquid TabBar Minimize
 
-A beautiful, customizable Flutter tab bar with scroll-to-minimize behavior. Automatically detects iOS 26+ for native minimize support, with a stunning custom implementation for older iOS versions and Android.
+A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, and a frosted-glass custom bar for everything else (iOS <26 & Android).
 
-![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue)
-![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.0.0-blue)
+![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue) ![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.0.0-blue)
 
-## Features
+## Highlights
+- Native SwiftUI tab bar on iOS 26+; custom glassmorphism bar on older iOS and Android
+- Scroll-to-minimize with tunable threshold and start offset (or disable entirely)
+- Configurable colors, height, label visibility, and optional action button
+- SF Symbol mapping for native bar
 
-✨ **Automatic Platform Detection**
-- iOS 26+: Native SwiftUI tab bar with native minimize
-- iOS <26 & Android: Beautiful custom implementation
-
-🎨 **Customizable Design**
-- Frosted glass effect with blur
-- Adjustable colors, opacity, and borders
-- Label visibility modes (always, selectedOnly, never)
-- Optional action button (search, add, etc.)
-
-📱 **Scroll-to-Minimize**
-- Smooth collapse animation on scroll down
-- Expand on scroll up
-- Adjustable threshold
-- Can be disabled entirely with `enableMinimize`
-
-🚀 **Easy to Use**
-- Simple API
-- Minimal configuration
-- Works with any Flutter app
-
-## Installation
-
-Add to your `pubspec.yaml`:
+## Install
 
 ```yaml
 dependencies:
   liquid_tabbar_minimize: ^1.0.0
 ```
-
-Then run:
-
 ```bash
 flutter pub get
 ```
 
-## Usage
-
-### Basic Example
+## Quick Start
 
 ```dart
 import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
@@ -58,20 +33,37 @@ LiquidBottomNavigationBar(
     BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
     BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
   ],
-  pages: [
-    HomePage(),
-    SearchPage(),
-    SettingsPage(),
-  ],
-)
+  showActionButton: true,
+  actionIcon: (const Icon(Icons.add), 'plus'),
+  onActionTap: () => debugPrint('Action tapped'),
+  labelVisibility: LabelVisibility.always,
+);
 ```
 
-### Advanced Example
+### Scroll wiring (custom bar)
+Forward scroll deltas so minimize/expand reacts:
+```dart
+double _lastScroll = 0;
 
+NotificationListener<ScrollNotification>(
+  onNotification: (n) {
+    if (n is ScrollUpdateNotification) {
+      final offset = n.metrics.pixels;
+      final delta = offset - _lastScroll;
+      LiquidBottomNavigationBar.handleScroll(offset, delta);
+      _lastScroll = offset;
+    }
+    return false;
+  },
+  child: ListView(...),
+);
+```
+
+## Advanced Options
 ```dart
 LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
-  onTap: (index) => setState(() => _selectedIndex = index),
+  onTap: (i) => setState(() => _selectedIndex = i),
   items: const [
     BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
     BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
@@ -83,52 +75,20 @@ LiquidBottomNavigationBar(
     if (icon == Icons.explore) return 'globe';
     return 'circle.fill';
   },
-  
-  // Customization
+  showActionButton: true,
+  actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+  onActionTap: () => debugPrint('Action'),
   selectedItemColor: Colors.blue,
   unselectedItemColor: Colors.grey,
   height: 68,
+  bottomOffset: 8,
   labelVisibility: LabelVisibility.selectedOnly,
-  
-  // Optional action button
-  showActionButton: true,
-  actionIcon: (const Icon(Icons.add), 'plus'),
-  onActionTap: () => print('Action tapped'),
-  
-  // Scroll minimize settings
-  minimizeThreshold: 0.1, // 10% scroll threshold
-  forceCustomBar: false, // Use custom bar even on iOS 26+
-  enableMinimize: true, // Set false to keep the bar always expanded
-)
-```
-
-### Scroll Handling
-
-For custom bar scroll minimize to work, pass scroll events:
-
-```dart
-class _PageState extends State<Page> {
-  double _lastScrollOffset = 0;
-
-  void _handleScroll(double offset, double delta) {
-    final barState = LiquidBottomNavigationBar.barKey.currentState;
-    barState?.handleScroll(offset, offset - _lastScrollOffset);
-    _lastScrollOffset = offset;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification is ScrollUpdateNotification) {
-          _handleScroll(notification.metrics.pixels, notification.metrics.pixels);
-        }
-        return false;
-      },
-      child: ListView(...),
-    );
-  }
-}
+  // Minimize tuning
+  enableMinimize: true,          // false keeps bar always expanded
+  minimizeThreshold: 0.1,        // 10% scroll threshold
+  collapseStartOffset: 20,       // px before minimize kicks in (0 = immediate)
+  forceCustomBar: false,         // true = always use custom bar
+);
 ```
 
 ## Parameters
@@ -136,61 +96,39 @@ class _PageState extends State<Page> {
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `currentIndex` | `int` | required | Currently selected tab index |
+| `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5) |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
-| `selectedItemColor` | `Color?` | primary | Color for selected tab |
-| `unselectedItemColor` | `Color?` | grey | Color for unselected tabs |
-| `height` | `double` | 68 | Tab bar height |
-| `labelVisibility` | `LabelVisibility` | always | Label display mode |
 | `showActionButton` | `bool` | false | Show optional action button |
-| `actionIcon` | `(Icon, String)?` | null | Action button icon (Flutter icon, SF Symbol) |
+| `actionIcon` | `(Icon, String)?` | null | Action icon (Flutter icon, SF Symbol for native) |
 | `onActionTap` | `VoidCallback?` | null | Action button callback |
-| `sfSymbolMapper` | `Function?` | null | Map IconData to SF Symbols |
-| `minimizeThreshold` | `double` | 0.1 | Scroll threshold (0.0-1.0) |
+| `selectedItemColor` | `Color?` | theme primary | Color for selected tab/action |
+| `unselectedItemColor` | `Color?` | auto | Color for unselected tabs/action |
+| `height` | `double` | 68 | Tab bar height |
+| `bottomOffset` | `double` | 0 | Lift bar above home indicator |
+| `labelVisibility` | `LabelVisibility` | always | Label display mode |
+| `sfSymbolMapper` | `Function?` | null | Map IconData to SF Symbols (native) |
+| `minimizeThreshold` | `double` | 0.1 | Scroll threshold (0–1) |
+| `collapseStartOffset` | `double` | 20.0 | Pixels before minimize applies (0 = immediate) |
 | `forceCustomBar` | `bool` | false | Force custom bar on iOS 26+ |
-| `enableMinimize` | `bool` | true | Disable to keep the bar always expanded |
+| `enableMinimize` | `bool` | true | Keep bar expanded if false |
 
 ## Label Visibility
-
 ```dart
-enum LabelVisibility {
-  always,        // Show all labels
-  selectedOnly,  // Show only selected tab label
-  never,         // Hide all labels
-}
+enum LabelVisibility { always, selectedOnly, never }
 ```
+Supported in both custom and native bars.
 
-## iOS Native Support
+## iOS Native (26+)
+- Native minimize behavior and blur
+- SF Symbols support via `sfSymbolMapper`
+- Honors `labelVisibility`, colors, action button, minimize toggles
 
-For iOS 26+, the package automatically uses native SwiftUI tab bar with:
-- Native minimize behavior
-- SF Symbols support
-- Native blur and styling
-
-To provide data for native tabs, use `itemCounts` and optionally `sfSymbolMapper`.
-
-## Platform Compatibility
-
-- ✅ iOS 14+
-- ✅ Android (API 21+)
-- ✅ Native iOS 26+ minimize
-- ✅ Custom minimize for iOS <26 & Android
+## Compatibility
+- iOS 14+ (native minimize auto on 26+)
+- Android (custom bar)
 
 ## Example App
-
-Check the [example](example/) folder for a complete demo app.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+See [`example/`](example/) for a runnable demo with multiple screens and scroll wiring.
 
 ## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Author
-
-Created with ❤️ by Mesut
-
----
-
-**Note:** iOS 26 native minimize requires iOS 26.0+ simulator/device. For testing on older iOS versions, set `forceCustomBar: true`.
+MIT — see [LICENSE](LICENSE).

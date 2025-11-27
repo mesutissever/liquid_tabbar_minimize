@@ -374,6 +374,7 @@ class _HomePageState extends State<HomePage> {
         labelVisibility: LabelVisibility.always,
         height: 68,
         forceCustomBar: false,
+        collapseStartOffset: 0,
       ),
     );
   }

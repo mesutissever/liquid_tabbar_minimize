@@ -470,7 +470,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                 return Expanded(
                                   child: GestureDetector(
                                     onTap: () {
-                                      _lockExpanded(const Duration(milliseconds: 600));
+                                      _pauseScrollHandling(
+                                        const Duration(milliseconds: 1200),
+                                      );
+                                      _lockExpanded(const Duration(milliseconds: 1200));
                                       widget.onTap?.call(index);
                                     },
                                     child: AnimatedContainer(
@@ -593,8 +596,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                 alignment: Alignment.bottomRight,
                 child: GestureDetector(
                   onTap: () {
-                    _pauseScrollHandling(const Duration(milliseconds: 400));
-                    _lockExpanded(const Duration(milliseconds: 600));
+                    _pauseScrollHandling(const Duration(milliseconds: 1200));
+                    _lockExpanded(const Duration(milliseconds: 1200));
                     widget.onActionTap?.call();
                   },
                   child: ClipRRect(

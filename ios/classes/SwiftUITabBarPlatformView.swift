@@ -585,13 +585,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     // Tab seçimlerini Flutter'a yansıt
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         let tag = viewController.tabBarItem.tag
+        // Seçimlerde kısa süre scroll minimize tetiklemesin
+        ignoreScrollUntil = Date().addingTimeInterval(1.2)
+        expandedLockUntil = Date().addingTimeInterval(1.2)
         // Minimized durumunda herhangi bir sekmeye dokunulduğunda önce genişlet
         if isMinimized, let wrapper = tabBarWrapper {
             expandTabBar(wrapper)
-            ignoreScrollUntil = Date().addingTimeInterval(0.4)
         }
-        // Expand durumunda da kısa süre collapse'a izin verme
-        expandedLockUntil = Date().addingTimeInterval(0.6)
         // Any normal tab tap should clear action pill selection state.
         actionTabBar?.selectedItem = nil
         eventChannel.invokeMethod("onTabChanged", arguments: tag)
@@ -602,8 +602,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         if tabBar == actionTabBar && item.tag == -1 {
             eventChannel.invokeMethod("onActionTapped", arguments: nil)
             tabBar.selectedItem = nil
-            ignoreScrollUntil = Date().addingTimeInterval(0.4)
-            expandedLockUntil = Date().addingTimeInterval(0.6)
+            ignoreScrollUntil = Date().addingTimeInterval(1.2)
+            expandedLockUntil = Date().addingTimeInterval(1.2)
         }
     }
 

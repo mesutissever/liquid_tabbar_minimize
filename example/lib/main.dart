@@ -29,7 +29,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
 
-  // Her sayfa için ayrı ScrollController
+  // Separate ScrollController for each page
   late final ScrollController _homeScrollController;
   late final ScrollController _exploreScrollController;
   late final ScrollController _favoritesScrollController;
@@ -101,7 +101,7 @@ class _HomePageState extends State<HomePage> {
     return 'circle.fill'; // fallback
   }
 
-  // Her tab için özel sayfa
+  // Dedicated page for each tab
   Widget _buildHomePage() {
     return Scaffold(
       appBar: AppBar(title: const Text('Home'), backgroundColor: Colors.blue),

@@ -25,8 +25,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final Color? unselectedItemColor;
   final ValueChanged<double>? onScroll;
   final LabelVisibility labelVisibility;
-  final double minimizeThreshold; // Scroll threshold (örn: 0.1 = %10)
-  final bool forceCustomBar; // Native'i devre dışı bırak
+  final double minimizeThreshold; // Scroll threshold (e.g. 0.1 = 10%)
+  final bool forceCustomBar; // Force the custom bar instead of native
   /// Bottom offset to lift bar from home indicator. 0 = flush.
   final double bottomOffset;
   /// Enable/disable scroll-based minimize/expand behavior.
@@ -48,8 +48,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.unselectedItemColor,
     this.onScroll,
     this.labelVisibility = LabelVisibility.always,
-    this.minimizeThreshold = 0.1, // Default %10
-    this.forceCustomBar = false, // iOS 26'da bile custom bar kullan
+    this.minimizeThreshold = 0.1, // Default 10%
+    this.forceCustomBar = false, // Use custom bar even on iOS 26+
     this.bottomOffset = 0,
     this.enableMinimize = true,
   }) : assert(items.length >= 2 && items.length <= 5),
@@ -115,7 +115,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
   }
 
   Future<void> _checkIOSVersion() async {
-    // iOS 26+ native; diğerlerinde custom. forceCustomBar her zaman custom'a geçirir.
+    // iOS 26+ uses native; others fall back to custom unless forceCustomBar is set.
     if (widget.forceCustomBar) {
       setState(() {
         _useNative = false;

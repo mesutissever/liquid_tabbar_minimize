@@ -1,6 +1,6 @@
 name: liquid_tabbar_minimize
 description: "Adaptive glassmorphism bottom bar with scroll-to-minimize and native iOS 26+ support."
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/mesutissever/liquid_tabbar_minimize
 repository: https://github.com/mesutissever/liquid_tabbar_minimize
 issue_tracker: https://github.com/mesutissever/liquid_tabbar_minimize/issues

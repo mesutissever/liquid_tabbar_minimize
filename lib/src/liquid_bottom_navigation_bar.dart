@@ -155,7 +155,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     final secondaryAnim =
         route?.secondaryAnimation ?? kAlwaysDismissedAnimation;
 
-    // Route animasyonlarına kulak verip barı anında gizlemek/göstermek için AnimatedBuilder
+    // Listen to route animations so we can hide/show instantly during transitions
     return AnimatedBuilder(
       animation: Listenable.merge([primaryAnim, secondaryAnim]),
       builder: (context, child) {
@@ -344,7 +344,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   }
 }
 
-// Custom liquid tab bar (iOS < 26 veya forceCustomBar: true)
+// Custom liquid tab bar (iOS < 26 or forceCustomBar: true)
 class _CustomLiquidBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;

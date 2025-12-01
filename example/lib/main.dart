@@ -11,9 +11,27 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
-      navigatorObservers: [LiquidRouteObserver.instance],
+      navigatorObservers: [
+        DebugRouteObserver(), // your app-level observer
+        LiquidRouteObserver.instance, // tabbar observer
+      ],
       home: const HomePage(),
     );
+  }
+}
+
+/// Sample observer; replace with your Firebase/analytics observer.
+class DebugRouteObserver extends RouteObserver<PageRoute<dynamic>> {
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    super.didPush(route, previousRoute);
+    debugPrint('didPush -> ${route.settings.name}');
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    super.didPop(route, previousRoute);
+    debugPrint('didPop -> ${route.settings.name}');
   }
 }
 
@@ -169,14 +187,14 @@ class _HomePageState extends State<HomePage> {
         FloatingActionButton.extended(
           heroTag: 'sheet',
           onPressed: () => _showDemoSheet(context),
-          label: const Text('Sheet aç'),
+          label: const Text('Open sheet'),
           icon: const Icon(Icons.keyboard_arrow_up),
         ),
         const SizedBox(height: 12),
         FloatingActionButton.extended(
           heroTag: 'push',
           onPressed: () => _pushDemoPage(context),
-          label: const Text('Sayfa aç'),
+          label: const Text('Open page'),
           icon: const Icon(Icons.open_in_new),
         ),
       ],
@@ -199,8 +217,8 @@ class _HomePageState extends State<HomePage> {
                 controller: controller,
                 itemCount: 30,
                 itemBuilder: (context, index) => ListTile(
-                  title: Text('Bottom sheet satırı ${index + 1}'),
-                  subtitle: const Text('Tabbar gizlendi mi kontrol et'),
+                  title: Text('Bottom sheet row ${index + 1}'),
+                  subtitle: const Text('Confirm tabbar hides under sheet'),
                 ),
               ),
             );
@@ -215,14 +233,14 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(
         builder: (context) => Scaffold(
           appBar: AppBar(
-            title: const Text('Yeni Sayfa'),
+            title: const Text('New Page'),
             backgroundColor: Colors.red,
           ),
           body: ListView.builder(
             itemCount: 40,
             itemBuilder: (context, index) => ListTile(
-              title: Text('Push edilen sayfa satırı ${index + 1}'),
-              subtitle: const Text('Tabbar animasyonda görünmüyor mu?'),
+              title: Text('Pushed page row ${index + 1}'),
+              subtitle: const Text('Tabbar hidden during transition?'),
             ),
           ),
         ),

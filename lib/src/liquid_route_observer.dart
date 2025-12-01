@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// Paylaşımlı RouteObserver; MaterialApp.router kullanıyorsanız observers'a ekleyin.
+/// Shared RouteObserver; add to `navigatorObservers` (including MaterialApp.router).
 class LiquidRouteObserver extends RouteObserver<PageRoute<dynamic>> {
   LiquidRouteObserver._();
   static final LiquidRouteObserver instance = LiquidRouteObserver._();

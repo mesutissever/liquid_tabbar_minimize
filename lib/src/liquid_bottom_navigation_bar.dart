@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'liquid_route_observer.dart';
 
 /// Label visibility mode
 enum LabelVisibility { selectedOnly, always, never }
@@ -80,12 +81,14 @@ class LiquidBottomNavigationBar extends StatefulWidget {
       _LiquidBottomNavigationBarState();
 }
 
-class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
+class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
+    with RouteAware {
   bool _useNative = false;
   bool _isChecking = true;
   MethodChannel? _eventChannel;
   MethodChannel? _scrollChannel;
   double _lastScrollOffset = 0.0;
+  bool _isTopRoute = true;
 
   @override
   void initState() {
@@ -117,6 +120,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
       LiquidBottomNavigationBar._nativeState = null;
     }
     _eventChannel?.setMethodCallHandler(null);
+    LiquidRouteObserver.instance.unsubscribe(this);
     super.dispose();
   }
 
@@ -146,6 +150,34 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
+    final route = ModalRoute.of(context);
+    final primaryAnim = route?.animation ?? kAlwaysCompleteAnimation;
+    final secondaryAnim =
+        route?.secondaryAnimation ?? kAlwaysDismissedAnimation;
+
+    // Listen to route animations so we can hide/show instantly during transitions
+    return AnimatedBuilder(
+      animation: Listenable.merge([primaryAnim, secondaryAnim]),
+      builder: (context, child) {
+        if (_shouldHideForRoute(route)) {
+          return const SizedBox.shrink();
+        }
+        return _buildBar(context);
+      },
+    );
+  }
+
+  bool _shouldHideForRoute(ModalRoute<dynamic>? route) {
+    if (route == null) return false;
+
+    if (!_isTopRoute) return true;
+    if (!route.isCurrent) return true;
+    if ((route.animation?.value ?? 1) < 1) return true;
+    if ((route.secondaryAnimation?.value ?? 0) > 0.01) return true;
+    return false;
+  }
+
+  Widget _buildBar(BuildContext context) {
     if (_isChecking) {
       return const SizedBox.shrink();
     }
@@ -274,9 +306,45 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar> {
           debugPrint('❌ Send scroll error: $error');
         });
   }
+
+  // ----- RouteAware -----
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      LiquidRouteObserver.instance.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPush() {
+    _setTopRoute(true);
+  }
+
+  @override
+  void didPopNext() {
+    _setTopRoute(true);
+  }
+
+  @override
+  void didPushNext() {
+    _setTopRoute(false);
+  }
+
+  @override
+  void didPop() {
+    _setTopRoute(false);
+  }
+
+  void _setTopRoute(bool value) {
+    if (_isTopRoute != value) {
+      setState(() => _isTopRoute = value);
+    }
+  }
 }
 
-// Custom liquid tab bar (iOS < 26 veya forceCustomBar: true)
+// Custom liquid tab bar (iOS < 26 or forceCustomBar: true)
 class _CustomLiquidBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;

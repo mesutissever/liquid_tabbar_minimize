@@ -1,3 +1,13 @@
+
+
+## 1.0.2
+* Added `LiquidRouteObserver` and `RouteAware` support so the native tab bar hides instantly during pushes/modals.
+* Documented navigator observer usage; example app now wires both app-level and Liquid observers.
+* Fixed duplicate `dispose` and cleaned comments/imports.
+
+## 1.0.1
+* Bug fix
+
 ## 1.0.0
 
 * Initial release

@@ -49,6 +49,18 @@ LiquidBottomNavigationBar(
 );
 ```
 
+### Navigation observers (for native bar + instant hide)
+Add the provided `LiquidRouteObserver` to your app so the native tab bar hides immediately when a modal/page is pushed:
+```dart
+MaterialApp(
+  navigatorObservers: [
+    YourRouteObserver(),          // e.g., FirebaseAnalyticsObserver
+    LiquidRouteObserver.instance, // required for instant hide
+  ],
+  home: const HomePage(),
+);
+```
+
 ### Scroll wiring (custom bar)
 Forward scroll deltas so minimize/expand reacts:
 ```dart

@@ -11,6 +11,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
+      navigatorObservers: [LiquidRouteObserver.instance],
       home: const HomePage(),
     );
   }
@@ -103,6 +104,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHomePage() {
     return Scaffold(
       appBar: AppBar(title: const Text('Home'), backgroundColor: Colors.blue),
+      floatingActionButton: _buildOverlayFab(context),
       body: ListView.builder(
         controller: _homeScrollController,
         itemCount: 20,
@@ -155,6 +157,75 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildOverlayFab(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FloatingActionButton.extended(
+          heroTag: 'sheet',
+          onPressed: () => _showDemoSheet(context),
+          label: const Text('Sheet aç'),
+          icon: const Icon(Icons.keyboard_arrow_up),
+        ),
+        const SizedBox(height: 12),
+        FloatingActionButton.extended(
+          heroTag: 'push',
+          onPressed: () => _pushDemoPage(context),
+          label: const Text('Sayfa aç'),
+          icon: const Icon(Icons.open_in_new),
+        ),
+      ],
+    );
+  }
+
+  void _showDemoSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.8,
+          builder: (context, controller) {
+            return Material(
+              color: Theme.of(context).colorScheme.surface,
+              child: ListView.builder(
+                controller: controller,
+                itemCount: 30,
+                itemBuilder: (context, index) => ListTile(
+                  title: Text('Bottom sheet satırı ${index + 1}'),
+                  subtitle: const Text('Tabbar gizlendi mi kontrol et'),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _pushDemoPage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Yeni Sayfa'),
+            backgroundColor: Colors.red,
+          ),
+          body: ListView.builder(
+            itemCount: 40,
+            itemBuilder: (context, index) => ListTile(
+              title: Text('Push edilen sayfa satırı ${index + 1}'),
+              subtitle: const Text('Tabbar animasyonda görünmüyor mu?'),
+            ),
+          ),
+        ),
       ),
     );
   }

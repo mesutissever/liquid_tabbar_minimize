@@ -181,6 +181,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     if (_isChecking) {
       return const SizedBox.shrink();
     }
+    final bool isRtl = Directionality.of(context) == TextDirection.rtl;
 
     if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
       return _CustomLiquidBar(
@@ -200,6 +201,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
         enableMinimize: widget.enableMinimize,
         collapseStartOffset: widget.collapseStartOffset,
         animationDuration: widget.animationDuration,
+        isRtl: isRtl,
       );
     }
 
@@ -265,6 +267,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     'collapseStartOffset': widget.collapseStartOffset,
                     'animationDurationMs':
                         widget.animationDuration.inMilliseconds,
+                    'isRtl': isRtl,
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -292,6 +295,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
       enableMinimize: widget.enableMinimize,
       collapseStartOffset: widget.collapseStartOffset,
       animationDuration: widget.animationDuration,
+      isRtl: isRtl,
     );
   }
 
@@ -361,6 +365,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final bool enableMinimize;
   final double collapseStartOffset;
   final Duration animationDuration;
+  final bool isRtl;
 
   const _CustomLiquidBar({
     super.key,
@@ -379,6 +384,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.enableMinimize,
     required this.collapseStartOffset,
     required this.animationDuration,
+    required this.isRtl,
   });
 
   @override
@@ -483,6 +489,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
             : Colors.black.withValues(alpha: 0.5));
     final isActionSelected =
         widget.showActionButton && widget.currentIndex >= widget.items.length;
+    final bool isRtl = widget.isRtl;
 
     // Custom bar spacing: small positive gap so action pill is separated but close.
     final double actionSpacing = widget.showActionButton ? 8.0 : 0.0;
@@ -499,10 +506,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
       child: Padding(
         padding: EdgeInsets.only(left: 16, right: 16, bottom: bottomGap),
         child: Stack(
-          alignment: Alignment.bottomRight,
+          alignment: isRtl ? Alignment.bottomLeft : Alignment.bottomRight,
           children: [
             Align(
-              alignment: Alignment.bottomLeft,
+              alignment: isRtl ? Alignment.bottomRight : Alignment.bottomLeft,
               child: AnimatedContainer(
                 duration: widget.animationDuration,
                 curve: Curves.easeInOut,
@@ -670,7 +677,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
             ),
             if (widget.showActionButton)
               Align(
-                alignment: Alignment.bottomRight,
+                alignment: isRtl ? Alignment.bottomLeft : Alignment.bottomRight,
                 child: GestureDetector(
                   onTap: () {
                     _pauseScrollHandling(const Duration(milliseconds: 1200));

@@ -73,6 +73,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var animationDuration: Double = 0.25
     private var lastOffset: Double = 0
     private var lastDelta: Double = 0
+    private var isRtl: Bool = false
 
     private var originalTabBarItems: [UITabBarItem]?
 
@@ -119,6 +120,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         labelVisibility = Self.parseLabelVisibility(args: args)
         collapseStartOffset = Self.parseCollapseStartOffset(args: args)
         animationDuration = Self.parseAnimationDurationMs(args: args) / 1000.0
+        isRtl = Self.parseIsRtl(args: args)
         let bottomOffsetArg = Self.parseBottomOffset(args: args)
         lastOffset = 0
         selectedTintColor = selectedColor
@@ -132,10 +134,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionButtonSpacing = desiredSpacing
         }
         bottomOffset = CGFloat(bottomOffsetArg)
+        let direction: UISemanticContentAttribute = isRtl ? .forceRightToLeft : .forceLeftToRight
 
         let tabController = UITabBarController()
         tabController.delegate = self
         tabController.tabBar.tintColor = selectedColor
+        tabController.view.semanticContentAttribute = direction
+        tabController.view.isOpaque = false
+        tabController.view.backgroundColor = .clear
 
         if #available(iOS 13.0, *) {
             tabController.tabBar.unselectedItemTintColor = unselectedColor
@@ -164,11 +170,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
         let tabBar = tabController.tabBar
         tabBar.isTranslucent = true
+        tabBar.isOpaque = false
         tabBar.insetsLayoutMarginsFromSafeArea = false
         tabBar.backgroundColor = .clear
         tabBar.barTintColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
+        tabBar.semanticContentAttribute = direction
+        container.semanticContentAttribute = direction
         if #available(iOS 13.0, *) {
             tabBar.unselectedItemTintColor = unselectedColor
         }
@@ -824,6 +833,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func parseAnimationDurationMs(args: Any?) -> Double {
         (args as? [String: Any])?["animationDurationMs"] as? Double ?? 250.0
+    }
+
+    static func parseIsRtl(args: Any?) -> Bool {
+        (args as? [String: Any])?["isRtl"] as? Bool ?? false
     }
 
     static func defaultItems() -> [NativeTabItemData] {

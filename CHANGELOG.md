@@ -1,7 +1,8 @@
 # 1.0.3
-* RTL support: custom and native bars mirror automatically based on `TextDirection`, including semantics on iOS.
-* Native iOS view marked non-opaque and given RTL-aware semantic attributes.
-* Docs updated (README) to note RTL and latest install version.
+* RTL support: custom and native bars mirror automatically based on `TextDirection`.
+* Native iOS: action pill + main bar swap sides in RTL; collapse/expand respects RTL spacing.
+* Marked native view non-opaque and RTL-aware semantics; docs bumped (README install version).
+* Android declared as Dart-only plugin (bar is already Flutter-rendered).
 
 ## 1.0.2
 * Added `LiquidRouteObserver` and `RouteAware` so the native tab bar hides instantly during pushes/modals.

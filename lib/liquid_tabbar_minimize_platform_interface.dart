@@ -8,7 +8,8 @@ abstract class LiquidTabbarMinimizePlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static LiquidTabbarMinimizePlatform _instance = MethodChannelLiquidTabbarMinimize();
+  static LiquidTabbarMinimizePlatform _instance =
+      MethodChannelLiquidTabbarMinimize();
 
   /// The default instance of [LiquidTabbarMinimizePlatform] to use.
   ///

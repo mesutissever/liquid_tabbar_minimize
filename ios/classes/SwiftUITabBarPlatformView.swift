@@ -73,6 +73,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var animationDuration: Double = 0.25
     private var lastOffset: Double = 0
     private var lastDelta: Double = 0
+    private var isRtl: Bool = false
 
     private var originalTabBarItems: [UITabBarItem]?
 
@@ -119,6 +120,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         labelVisibility = Self.parseLabelVisibility(args: args)
         collapseStartOffset = Self.parseCollapseStartOffset(args: args)
         animationDuration = Self.parseAnimationDurationMs(args: args) / 1000.0
+        isRtl = Self.parseIsRtl(args: args)
         let bottomOffsetArg = Self.parseBottomOffset(args: args)
         lastOffset = 0
         selectedTintColor = selectedColor
@@ -132,10 +134,15 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionButtonSpacing = desiredSpacing
         }
         bottomOffset = CGFloat(bottomOffsetArg)
+        let direction: UISemanticContentAttribute = isRtl ? .forceRightToLeft : .forceLeftToRight
+        let actionGap = includeAction ? (pillWidth + actionButtonSpacing) : 0
 
         let tabController = UITabBarController()
         tabController.delegate = self
         tabController.tabBar.tintColor = selectedColor
+        tabController.view.semanticContentAttribute = direction
+        tabController.view.isOpaque = false
+        tabController.view.backgroundColor = .clear
 
         if #available(iOS 13.0, *) {
             tabController.tabBar.unselectedItemTintColor = unselectedColor
@@ -164,11 +171,14 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
         let tabBar = tabController.tabBar
         tabBar.isTranslucent = true
+        tabBar.isOpaque = false
         tabBar.insetsLayoutMarginsFromSafeArea = false
         tabBar.backgroundColor = .clear
         tabBar.barTintColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
+        tabBar.semanticContentAttribute = direction
+        container.semanticContentAttribute = direction
         if #available(iOS 13.0, *) {
             tabBar.unselectedItemTintColor = unselectedColor
         }
@@ -227,16 +237,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             // Add tab bar view to wrapper at full width initially
             wrapper.addSubview(tabController.view)
 
-            // Leave room for the action pill so it visually connects with the main bar
-            let trailingOffsetBase = includeAction ? (pillWidth + actionButtonSpacing) : 0
-            let trailingOffset = max(trailingOffsetBase, 4) // keep at least 4px gap
-
-            // Expanded (normal) insets: 2px left, 2px + action gap on the right
-            let leadExp = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
-            let trailExp = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(2 + trailingOffset))
-            // Collapsed (minimized) insets: 2px left, 2px + action gap on the right
-            let leadCol = wrapper.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2)
-            let trailCol = wrapper.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -(2 + trailingOffset))
+            // Leave room for the action pill on its side (absolute anchors to avoid semantic flipping)
+            let gap = max(actionGap, 4) // keep at least 4px gap
+            // In RTL: gap on the left, bar pinned to the right. LTR: gap on the right.
+            let leadExp = wrapper.leftAnchor.constraint(equalTo: container.leftAnchor, constant: isRtl ? (2 + gap) : 2)
+            let trailExp = wrapper.rightAnchor.constraint(equalTo: container.rightAnchor, constant: isRtl ? -2 : -(2 + gap))
+            let leadCol = wrapper.leftAnchor.constraint(equalTo: container.leftAnchor, constant: isRtl ? (2 + gap) : 2)
+            let trailCol = wrapper.rightAnchor.constraint(equalTo: container.rightAnchor, constant: isRtl ? -2 : -(2 + gap))
 
             let bottom = wrapper.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomOffset)
             let height = wrapper.heightAnchor.constraint(equalTo: tabController.tabBar.heightAnchor)
@@ -314,17 +321,20 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionTabBar = actionBar
 
             let bottomConst = actionBar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottomOffset)
-            let trailingConst = actionBar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: 0)
+            // Absolute anchors so semantic direction does not flip sides
+            let horizontalConst: NSLayoutConstraint = isRtl
+                ? actionBar.leftAnchor.constraint(equalTo: container.leftAnchor, constant: 0)
+                : actionBar.rightAnchor.constraint(equalTo: container.rightAnchor, constant: 0)
 
             NSLayoutConstraint.activate([
                 bottomConst,
-                trailingConst,
+                horizontalConst,
                 actionBar.widthAnchor.constraint(equalToConstant: pillWidth),
                 actionBar.heightAnchor.constraint(equalToConstant: actionButtonSize)
             ])
 
             actionButtonBottom = bottomConst
-            actionButtonTrailing = trailingConst
+            actionButtonTrailing = horizontalConst
         }
 
         self.tabBarController = tabController
@@ -392,6 +402,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
         // Shrink tab bar inside the same wrapper
         tabViewTrailing?.isActive = false
+        if isRtl {
+            // In RTL keep trailing anchored so the pill stays on the right
+            tabViewLeading?.isActive = false
+            tabViewTrailing?.isActive = true
+        }
         if tabViewCollapsedWidth == nil {
             // Narrow the width (76 -> 64)
             tabViewCollapsedWidth = tbc.view.widthAnchor.constraint(equalToConstant: 105)
@@ -483,6 +498,7 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         }
 
         tabViewCollapsedWidth?.isActive = false
+        tabViewLeading?.isActive = true
         tabViewTrailing?.isActive = true
 
         // Restore all VCs if they were collapsed
@@ -824,6 +840,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func parseAnimationDurationMs(args: Any?) -> Double {
         (args as? [String: Any])?["animationDurationMs"] as? Double ?? 250.0
+    }
+
+    static func parseIsRtl(args: Any?) -> Bool {
+        (args as? [String: Any])?["isRtl"] as? Bool ?? false
     }
 
     static func defaultItems() -> [NativeTabItemData] {

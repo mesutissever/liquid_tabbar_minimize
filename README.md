@@ -18,12 +18,15 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 - Scroll-to-minimize with tunable threshold and start offset (or disable entirely)
 - Configurable colors, height, label visibility, and optional action button
 - SF Symbol mapping for native bar
+- RTL aware: auto mirrors layout/semantics in both native and custom bars
+- RTL-native animation/spacing: action pill and collapse direction swap correctly when RTL is active
+- Android is fully Flutter-rendered (no native code required)
 
 ## Install
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.0
+  liquid_tabbar_minimize: ^1.0.3
 ```
 ```bash
 flutter pub get
@@ -60,6 +63,9 @@ MaterialApp(
   home: const HomePage(),
 );
 ```
+
+### RTL support
+No extra config: if your app runs with `TextDirection.rtl`/RTL locale, both native and custom bars mirror automatically (labels, icons, action pill, and animations stay aligned).
 
 ### Scroll wiring (custom bar)
 Forward scroll deltas so minimize/expand reacts:

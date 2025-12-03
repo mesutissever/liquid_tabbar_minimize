@@ -1,14 +1,16 @@
-
-
-## 1.0.2
+# 1.0.3
 * RTL support: custom and native bars mirror automatically based on `TextDirection`, including semantics on iOS.
 * Native iOS view marked non-opaque and given RTL-aware semantic attributes.
 * Docs updated (README) to note RTL and latest install version.
 
-## 1.0.1
+## 1.0.2
 * Added `LiquidRouteObserver` and `RouteAware` so the native tab bar hides instantly during pushes/modals.
 * Example wires both app-level and Liquid observers.
 * Fixed duplicate `dispose` and cleaned comments/imports.
+
+## 1.0.1
+* Bug fix
+
 
 ## 1.0.0
 

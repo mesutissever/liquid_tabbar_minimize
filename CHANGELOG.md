@@ -1,13 +1,16 @@
+# 1.0.5
+* Fix RTL native layout/taps: action pill and main bar swap sides correctly; taps routed to correct targets in RTL minimize state.
+
 # 1.0.4
 * Custom bar rebuilt with a sliding pill background and adaptive tab widths so long labels stay readable while the selected tab gets breathing room.
 * Action button/icon sizing refined to better match the condensed pill layout; overall spacing is smoother across tabs.
-* Removed noisy native version debug print during iOS detection.
+* RTL support: custom and native bars mirror automatically based on `TextDirection`; native action pill + main bar swap sides with RTL spacing.
+* Native view marked non-opaque and RTL-aware semantics; Android declared as Dart-only plugin; removed noisy native version debug print.
 
 # 1.0.3
-* RTL support: custom and native bars mirror automatically based on `TextDirection`.
-* Native iOS: action pill + main bar swap sides in RTL; collapse/expand respects RTL spacing.
-* Marked native view non-opaque and RTL-aware semantics; docs bumped (README install version).
-* Android declared as Dart-only plugin (bar is already Flutter-rendered).
+* Added `LiquidRouteObserver` and `RouteAware` so the native tab bar hides instantly during pushes/modals.
+* Example wires both app-level and Liquid observers.
+* Fixed duplicate `dispose` and cleaned comments/imports.
 
 ## 1.0.2
 * Added `LiquidRouteObserver` and `RouteAware` so the native tab bar hides instantly during pushes/modals.

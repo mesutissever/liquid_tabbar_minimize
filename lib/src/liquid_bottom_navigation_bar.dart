@@ -649,6 +649,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     }
 
     final totalFlex = flexValues.reduce((a, b) => a + b);
+    final bool isRtl = widget.isRtl;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
@@ -670,13 +671,18 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
             }
           }
 
+          // RTL için pozisyonu ters çevir
+          final double pillLeft = isRtl
+              ? availableWidth - selectedLeft - selectedWidth + 2
+              : selectedLeft + 2;
+
           return Stack(
             children: [
               // Sliding pill background
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOutCubic,
-                left: selectedLeft + 2,
+                left: pillLeft,
                 top: 0,
                 bottom: 0,
                 width: selectedWidth - 4,
@@ -705,77 +711,80 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                   ),
                 ),
               ),
-              // Tab items
-              Row(
-                children: List.generate(widget.items.length, (index) {
-                  final item = widget.items[index];
-                  final isSelected = widget.currentIndex == index;
-                  final showLabel =
-                      item.label != null && _shouldShowLabel(isSelected);
+              // Tab items - RTL için Directionality ile sarmalıyoruz
+              Directionality(
+                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                child: Row(
+                  children: List.generate(widget.items.length, (index) {
+                    final item = widget.items[index];
+                    final isSelected = widget.currentIndex == index;
+                    final showLabel =
+                        item.label != null && _shouldShowLabel(isSelected);
 
-                  return Expanded(
-                    flex: flexValues[index],
-                    child: GestureDetector(
-                      onTap: () {
-                        _pauseScrollHandling(
-                          const Duration(milliseconds: 1200),
-                        );
-                        _lockExpanded(const Duration(milliseconds: 1200));
-                        widget.onTap?.call(index);
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedScale(
-                              scale: isSelected ? 1.1 : 1.0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOutCubic,
-                              child: IconTheme(
-                                data: IconThemeData(
-                                  size: 22,
-                                  color: isSelected
-                                      ? selectedColor
-                                      : unselectedColor,
-                                ),
-                                child: item.icon,
-                              ),
-                            ),
-                            if (showLabel) ...[
-                              const SizedBox(height: 2),
-                              AnimatedDefaultTextStyle(
+                    return Expanded(
+                      flex: flexValues[index],
+                      child: GestureDetector(
+                        onTap: () {
+                          _pauseScrollHandling(
+                            const Duration(milliseconds: 1200),
+                          );
+                          _lockExpanded(const Duration(milliseconds: 1200));
+                          widget.onTap?.call(index);
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AnimatedScale(
+                                scale: isSelected ? 1.1 : 1.0,
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeOutCubic,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? selectedColor
-                                      : unselectedColor,
-                                  letterSpacing: 0.1,
-                                ),
-                                child: Text(
-                                  item.label!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                child: IconTheme(
+                                  data: IconThemeData(
+                                    size: 22,
+                                    color: isSelected
+                                        ? selectedColor
+                                        : unselectedColor,
+                                  ),
+                                  child: item.icon,
                                 ),
                               ),
+                              if (showLabel) ...[
+                                const SizedBox(height: 2),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? selectedColor
+                                        : unselectedColor,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  child: Text(
+                                    item.label!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
             ],
           );

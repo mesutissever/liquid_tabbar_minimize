@@ -145,7 +145,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
       _isChecking = false;
     });
     widget.onNativeDetected?.call(canUseNative);
-    debugPrint('iOS version: $major, native tabbar: $canUseNative');
   }
 
   @override
@@ -398,10 +397,20 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   DateTime _ignoreScrollUntil = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _expandedLockUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
+  final List<GlobalKey> _itemKeys = [];
+
   @override
   void initState() {
     super.initState();
     _initNativeChannel();
+    _initItemKeys();
+  }
+
+  void _initItemKeys() {
+    _itemKeys.clear();
+    for (int i = 0; i < widget.items.length; i++) {
+      _itemKeys.add(GlobalKey());
+    }
   }
 
   @override
@@ -411,6 +420,9 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
       setState(() {
         _isCollapsed = false;
       });
+    }
+    if (widget.items.length != oldWidget.items.length) {
+      _initItemKeys();
     }
   }
 
@@ -546,129 +558,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                               unselectedColor,
                               isDark,
                             )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: List.generate(widget.items.length, (
-                                index,
-                              ) {
-                                final item = widget.items[index];
-                                final isSelected = widget.currentIndex == index;
-                                return Expanded(
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _pauseScrollHandling(
-                                        const Duration(milliseconds: 1200),
-                                      );
-                                      _lockExpanded(
-                                        const Duration(milliseconds: 1200),
-                                      );
-                                      widget.onTap?.call(index);
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: widget.animationDuration,
-                                      curve: Curves.easeInOut,
-                                      margin: EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: isSelected ? 8 : 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: isSelected
-                                            ? LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: isDark
-                                                    ? [
-                                                        Colors.white.withValues(
-                                                          alpha: 0.18,
-                                                        ),
-                                                        Colors.white.withValues(
-                                                          alpha: 0.12,
-                                                        ),
-                                                      ]
-                                                    : [
-                                                        Colors.black.withValues(
-                                                          alpha: 0.12,
-                                                        ),
-                                                        Colors.black.withValues(
-                                                          alpha: 0.08,
-                                                        ),
-                                                      ],
-                                              )
-                                            : null,
-                                        borderRadius: BorderRadius.circular(26),
-                                        border: isSelected
-                                            ? Border.all(
-                                                color: isDark
-                                                    ? Colors.white.withValues(
-                                                        alpha: 0.3,
-                                                      )
-                                                    : Colors.black.withValues(
-                                                        alpha: 0.15,
-                                                      ),
-                                                width: 0.5,
-                                              )
-                                            : null,
-                                        boxShadow: isSelected
-                                            ? [
-                                                BoxShadow(
-                                                  color: isDark
-                                                      ? Colors.white.withValues(
-                                                          alpha: 0.1,
-                                                        )
-                                                      : Colors.black.withValues(
-                                                          alpha: 0.05,
-                                                        ),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          AnimatedScale(
-                                            scale: isSelected ? 1.05 : 1.0,
-                                            duration: widget.animationDuration,
-                                            curve: Curves.easeInOut,
-                                            child: IconTheme(
-                                              data: IconThemeData(
-                                                size: isSelected ? 26 : 24,
-                                                color: isSelected
-                                                    ? selectedColor
-                                                    : unselectedColor,
-                                              ),
-                                              child: item.icon,
-                                            ),
-                                          ),
-                                          if (item.label != null &&
-                                              _shouldShowLabel(isSelected)) ...[
-                                            const SizedBox(height: 4),
-                                            Flexible(
-                                              child: Text(
-                                                item.label!,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w500,
-                                                  color: isSelected
-                                                      ? selectedColor
-                                                      : unselectedColor,
-                                                  letterSpacing: 0.2,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
+                          : _buildExpandedTabBar(
+                              isDark,
+                              selectedColor,
+                              unselectedColor,
                             ),
                     ),
                   ),
@@ -717,7 +610,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                             curve: Curves.easeInOut,
                             child: IconTheme(
                               data: IconThemeData(
-                                size: 40,
+                                size: 30,
                                 color: isActionSelected
                                     ? selectedColor
                                     : unselectedColor,
@@ -735,6 +628,158 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedTabBar(
+    bool isDark,
+    Color selectedColor,
+    Color unselectedColor,
+  ) {
+    // Her item için flex hesapla
+    List<int> flexValues = [];
+    for (int i = 0; i < widget.items.length; i++) {
+      final item = widget.items[i];
+      final isSelected = widget.currentIndex == i;
+      final showLabel = item.label != null && _shouldShowLabel(isSelected);
+      final int labelLength = item.label?.length ?? 0;
+      final int extraFlex = showLabel ? (labelLength > 6 ? 2 : 1) : 0;
+      flexValues.add(10 + (isSelected ? extraFlex : 0));
+    }
+
+    final totalFlex = flexValues.reduce((a, b) => a + b);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final availableWidth = constraints.maxWidth;
+
+          // Seçili item'ın pozisyonunu ve genişliğini hesapla
+          double selectedLeft = 0;
+          double selectedWidth = 0;
+
+          for (int i = 0; i < widget.items.length; i++) {
+            final itemWidth = (availableWidth * flexValues[i]) / totalFlex;
+            if (i < widget.currentIndex) {
+              selectedLeft += itemWidth;
+            }
+            if (i == widget.currentIndex) {
+              selectedWidth = itemWidth;
+            }
+          }
+
+          return Stack(
+            children: [
+              // Sliding pill background
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                left: selectedLeft + 2,
+                top: 0,
+                bottom: 0,
+                width: selectedWidth - 4,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? [
+                              Colors.white.withValues(alpha: 0.18),
+                              Colors.white.withValues(alpha: 0.12),
+                            ]
+                          : [
+                              Colors.black.withValues(alpha: 0.12),
+                              Colors.black.withValues(alpha: 0.08),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : Colors.black.withValues(alpha: 0.15),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+              // Tab items
+              Row(
+                children: List.generate(widget.items.length, (index) {
+                  final item = widget.items[index];
+                  final isSelected = widget.currentIndex == index;
+                  final showLabel =
+                      item.label != null && _shouldShowLabel(isSelected);
+
+                  return Expanded(
+                    flex: flexValues[index],
+                    child: GestureDetector(
+                      onTap: () {
+                        _pauseScrollHandling(
+                          const Duration(milliseconds: 1200),
+                        );
+                        _lockExpanded(const Duration(milliseconds: 1200));
+                        widget.onTap?.call(index);
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedScale(
+                              scale: isSelected ? 1.1 : 1.0,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              child: IconTheme(
+                                data: IconThemeData(
+                                  size: 22,
+                                  color: isSelected
+                                      ? selectedColor
+                                      : unselectedColor,
+                                ),
+                                child: item.icon,
+                              ),
+                            ),
+                            if (showLabel) ...[
+                              const SizedBox(height: 2),
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? selectedColor
+                                      : unselectedColor,
+                                  letterSpacing: 0.1,
+                                ),
+                                child: Text(
+                                  item.label!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

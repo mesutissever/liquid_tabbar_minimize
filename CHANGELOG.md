@@ -1,3 +1,8 @@
+# 1.0.4
+* Custom bar rebuilt with a sliding pill background and adaptive tab widths so long labels stay readable while the selected tab gets breathing room.
+* Action button/icon sizing refined to better match the condensed pill layout; overall spacing is smoother across tabs.
+* Removed noisy native version debug print during iOS detection.
+
 # 1.0.3
 * RTL support: custom and native bars mirror automatically based on `TextDirection`.
 * Native iOS: action pill + main bar swap sides in RTL; collapse/expand respects RTL spacing.

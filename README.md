@@ -15,6 +15,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ## Highlights
 - Native SwiftUI tab bar on iOS 26+; custom glassmorphism bar on older iOS and Android
+- Animated pill indicator with adaptive tab widths so long labels stay readable
 - Scroll-to-minimize with tunable threshold and start offset (or disable entirely)
 - Configurable colors, height, label visibility, and optional action button
 - SF Symbol mapping for native bar
@@ -26,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.3
+  liquid_tabbar_minimize: ^1.0.4
 ```
 ```bash
 flutter pub get

@@ -27,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.4
+  liquid_tabbar_minimize: ^1.0.5
 ```
 ```bash
 flutter pub get
@@ -153,7 +153,7 @@ Supported in both custom and native bars.
 
 ## Compatibility
 - iOS 14+ (native minimize auto on 26+)
-- Android (custom bar)
+- Android (Flutter-rendered custom bar, declared as Dart-only plugin)
 
 ## Example App
 See [`example/`](example/) for a runnable demo with multiple screens and scroll wiring.

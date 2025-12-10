@@ -1,3 +1,7 @@
+# 1.0.6
+* **iOS 26+ Fix**: Fixed native tab bar event channel issue when widget is recreated (e.g., after `Get.offAllNamed` navigation). Each platform view now uses a unique channel ID.
+* Improved cleanup of old native views before creating new instances.
+
 # 1.0.5
 * Fix RTL native layout/taps: action pill and main bar swap sides correctly; taps routed to correct targets in RTL minimize state.
 

@@ -95,12 +95,16 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     super.initState();
     LiquidBottomNavigationBar._nativeState = this;
     _checkIOSVersion();
-    _setupEventChannel();
+    // Event channel will be setup after platform view is created
   }
 
-  void _setupEventChannel() {
-    _eventChannel = const MethodChannel('liquid_tabbar_minimize/events');
+  void _setupEventChannel(int viewId) {
+    // Clear old handler if exists
+    _eventChannel?.setMethodCallHandler(null);
+    // Create unique event channel per viewId
+    _eventChannel = MethodChannel('liquid_tabbar_minimize/events_$viewId');
     _eventChannel!.setMethodCallHandler(_handleNativeEvents);
+    debugPrint('🔵 Event channel setup for viewId: $viewId');
   }
 
   Future<void> _handleNativeEvents(MethodCall call) async {
@@ -247,6 +251,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     _scrollChannel = MethodChannel(
                       'liquid_tabbar_minimize/scroll_$id',
                     );
+                    // Setup event channel with unique viewId
+                    _setupEventChannel(id);
                   },
                   creationParams: {
                     'labels': widget.items.map((e) => e.label ?? '').toList(),

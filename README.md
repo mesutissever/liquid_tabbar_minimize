@@ -27,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.5
+  liquid_tabbar_minimize: ^1.0.6
 ```
 ```bash
 flutter pub get

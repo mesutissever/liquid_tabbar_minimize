@@ -201,10 +201,16 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     return AnimatedBuilder(
       animation: Listenable.merge([primaryAnim, secondaryAnim]),
       builder: (context, child) {
-        if (_shouldHideForRoute(route)) {
-          return const SizedBox.shrink();
-        }
-        return _buildBar(context);
+        final shouldHide = _shouldHideForRoute(route);
+        // Use Visibility to hide bar instead of removing from tree
+        // This preserves native UiKitView state during navigation
+        return Visibility(
+          visible: !shouldHide,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: false,
+          child: _buildBar(context),
+        );
       },
     );
   }

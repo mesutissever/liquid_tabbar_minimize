@@ -388,14 +388,29 @@ class _HomePageState extends State<HomePage> {
           _buildSettingsTile(Icons.language, 'Language', 'Change language'),
           _buildSettingsTile(Icons.dark_mode, 'Dark Mode', 'Toggle dark mode'),
           _buildSettingsTile(Icons.help, 'Help & Support', 'Get help'),
-          _buildSettingsTile(Icons.info, 'About', 'App version 1.0.0'),
+          _buildSettingsTile(
+            Icons.info,
+            'About',
+            'App version 1.0.0',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const AboutPage()),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsTile(IconData icon, String title, String subtitle) {
+  Widget _buildSettingsTile(
+    IconData icon,
+    String title,
+    String subtitle, {
+    VoidCallback? onTap,
+  }) {
     return ListTile(
+      onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -497,6 +512,31 @@ class _HomePageState extends State<HomePage> {
         forceCustomBar: false,
         collapseStartOffset: 0,
         animationDuration: const Duration(milliseconds: 100),
+      ),
+    );
+  }
+}
+
+class AboutPage extends StatelessWidget {
+  const AboutPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('About'),
+        backgroundColor: Colors.purple,
+      ),
+      body: ListView.builder(
+        itemCount: 30,
+        itemBuilder: (context, index) => ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.purple.withValues(alpha: 0.2),
+            child: Text('${index + 1}'),
+          ),
+          title: Text('About Item ${index + 1}'),
+          subtitle: const Text('Scroll to test minimize behavior'),
+        ),
       ),
     );
   }

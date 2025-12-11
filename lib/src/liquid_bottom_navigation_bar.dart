@@ -73,6 +73,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
       return;
     }
 
+    if (_nativeState == null) return;
     _nativeState?._sendScrollToNative(offset, delta);
   }
 
@@ -93,9 +94,10 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   @override
   void initState() {
     super.initState();
+    // Set _nativeState immediately so handleScroll can find us
     LiquidBottomNavigationBar._nativeState = this;
     _checkIOSVersion();
-    // Event channel will be setup after platform view is created
+    // Event and scroll channels will be setup after platform view is created
   }
 
   void _setupEventChannel(int viewId) {
@@ -104,7 +106,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     // Create unique event channel per viewId
     _eventChannel = MethodChannel('liquid_tabbar_minimize/events_$viewId');
     _eventChannel!.setMethodCallHandler(_handleNativeEvents);
-    debugPrint('🔵 Event channel setup for viewId: $viewId');
   }
 
   Future<void> _handleNativeEvents(MethodCall call) async {
@@ -253,6 +254,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     );
                     // Setup event channel with unique viewId
                     _setupEventChannel(id);
+                    // Set _nativeState AFTER channels are ready
+                    LiquidBottomNavigationBar._nativeState = this;
                   },
                   creationParams: {
                     'labels': widget.items.map((e) => e.label ?? '').toList(),
@@ -305,15 +308,10 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   }
 
   void _sendScrollToNative(double offset, double delta) {
-    if (_scrollChannel == null || !widget.enableMinimize) {
-      debugPrint('⚠️ Scroll channel not ready yet');
-      return;
-    }
+    if (_scrollChannel == null || !widget.enableMinimize) return;
     _scrollChannel!
         .invokeMethod('onScroll', {'offset': offset, 'delta': delta})
-        .catchError((error) {
-          debugPrint('❌ Send scroll error: $error');
-        });
+        .catchError((error) {});
   }
 
   // ----- RouteAware -----

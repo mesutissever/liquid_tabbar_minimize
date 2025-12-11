@@ -454,6 +454,7 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: LiquidBottomNavigationBar(
         enableMinimize: true,
+
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() => _selectedIndex = index);

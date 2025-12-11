@@ -763,13 +763,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private func updateTabLabels(labels: [String]) {
         guard let items = tabBarController?.tabBar.items else { return }
         
-        // Update main tab items (excluding action tab if present)
-        let mainItemCount = enableActionTab ? (items.count - 1) : items.count
-        let labelsToApply = Array(labels.prefix(mainItemCount))
-        
-        for (index, label) in labelsToApply.enumerated() {
+        // Update all tab items with received labels
+        for (index, label) in labels.enumerated() {
             if index < items.count {
-                items[index].title = label
+                let item = items[index]
+                item.title = label
+                // Also update the saved titles so they don't revert on minimize/expand
+                originalTitlesByTag[item.tag] = label
             }
         }
     }

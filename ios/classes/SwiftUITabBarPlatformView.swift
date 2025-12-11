@@ -86,13 +86,17 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         container = UIView(frame: frame)
         container.backgroundColor = .clear
 
-        // Use viewId-based unique channel names for proper widget recreation handling
+        // Extract instanceId from creationParams for unique channel naming
+        let argsDict = args as? [String: Any]
+        let instanceId = argsDict?["instanceId"] as? Int64 ?? viewId
+
+        // Use instanceId-based unique channel names for hot restart support
         eventChannel = FlutterMethodChannel(
-            name: "liquid_tabbar_minimize/events_\(viewId)",
+            name: "liquid_tabbar_minimize/events_\(instanceId)",
             binaryMessenger: messenger
         )
         scrollChannel = FlutterMethodChannel(
-            name: "liquid_tabbar_minimize/scroll_\(viewId)",
+            name: "liquid_tabbar_minimize/scroll_\(instanceId)",
             binaryMessenger: messenger
         )
 
@@ -345,6 +349,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 appearance.configureWithTransparentBackground()
                 appearance.backgroundEffect = UIBlurEffect(style: .systemMaterialDark)
                 appearance.backgroundColor = UIColor.black.withAlphaComponent(0.22)
+                // Fix initial render - explicitly set icon color to match tintColor settings
+                appearance.stackedLayoutAppearance.normal.iconColor = unselectedColor
+                appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
                 appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
                 appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
                 appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance

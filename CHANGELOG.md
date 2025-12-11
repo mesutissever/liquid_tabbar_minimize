@@ -1,3 +1,6 @@
+# 1.0.7
+* **Hot Restart Fix**: Fixed scroll-to-minimize not working after hot restart in development. Each widget instance now uses a unique timestamp-based ID for channel communication.
+
 # 1.0.6
 * **iOS 26+ Fix**: Fixed native tab bar event channel issue when widget is disposed and recreated during route transitions (e.g., route replacement, logout/login flows). Each platform view now uses a unique channel ID to ensure reliable communication.
 * **Locale Support**: Fixed issue where tab bar labels did not update when the app locale changed. Labels now dynamically update via MethodChannel when locale or translations change.

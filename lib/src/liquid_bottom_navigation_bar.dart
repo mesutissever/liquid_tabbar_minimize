@@ -90,6 +90,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   MethodChannel? _scrollChannel;
   double _lastScrollOffset = 0.0;
   bool _isTopRoute = true;
+  int? _currentViewId; // Track the current native view ID
 
   @override
   void initState() {
@@ -123,13 +124,17 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   void didUpdateWidget(covariant LiquidBottomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Check if labels changed (for locale updates)
-    if (_useNative && _scrollChannel != null) {
+    // Update native labels when locale changes (only if native view is ready)
+    if (_useNative && _scrollChannel != null && _currentViewId != null) {
       final oldLabels = oldWidget.items.map((e) => e.label ?? '').toList();
       final newLabels = widget.items.map((e) => e.label ?? '').toList();
 
       if (!_listEquals(oldLabels, newLabels)) {
-        _scrollChannel!.invokeMethod('updateLabels', {'labels': newLabels});
+        _scrollChannel!
+            .invokeMethod('updateLabels', {'labels': newLabels})
+            .catchError((error) {
+              // Silently ignore - native view may have been recreated
+            });
       }
     }
   }
@@ -147,6 +152,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     if (LiquidBottomNavigationBar._nativeState == this) {
       LiquidBottomNavigationBar._nativeState = null;
     }
+    _currentViewId = null;
     _eventChannel?.setMethodCallHandler(null);
     LiquidRouteObserver.instance.unsubscribe(this);
     super.dispose();
@@ -272,6 +278,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                 child: UiKitView(
                   viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
                   onPlatformViewCreated: (id) {
+                    _currentViewId = id; // Track viewId for channel matching
                     _scrollChannel = MethodChannel(
                       'liquid_tabbar_minimize/scroll_$id',
                     );

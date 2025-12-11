@@ -76,13 +76,19 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     private var isRtl: Bool = false
 
     private var originalTabBarItems: [UITabBarItem]?
+    
+    // MARK: - Singleton Pattern for Widget Recreation Fix
+    private static var sharedInstance: SwiftUITabBarPlatformView?
+    private static var currentEventChannel: FlutterMethodChannel?
+    private var isReusedInstance = false
 
     init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
         container = UIView(frame: frame)
         container.backgroundColor = .clear
 
+        // Use viewId-based unique channel names for proper widget recreation handling
         eventChannel = FlutterMethodChannel(
-            name: "liquid_tabbar_minimize/events",
+            name: "liquid_tabbar_minimize/events_\(viewId)",
             binaryMessenger: messenger
         )
         scrollChannel = FlutterMethodChannel(
@@ -91,6 +97,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         )
 
         super.init()
+        
+        // Store current event channel reference for this instance
+        SwiftUITabBarPlatformView.currentEventChannel = eventChannel
 
         scrollChannel?.setMethodCallHandler { [weak self] call, result in
             guard
@@ -106,8 +115,25 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             self?.handleScroll(offset: offset, delta: delta)
             result(nil)
         }
+        
+        // Clean up any existing instance before creating new one
+        if let existingInstance = SwiftUITabBarPlatformView.sharedInstance {
+            existingInstance.cleanupViews()
+        }
+        
+        SwiftUITabBarPlatformView.sharedInstance = self
 
         setupTabBar(args: args)
+    }
+    
+    /// Clean up views without fully deinitializing
+    private func cleanupViews() {
+        tabBarController?.willMove(toParent: nil)
+        tabBarController?.view.removeFromSuperview()
+        tabBarController?.removeFromParent()
+        tabBarWrapper?.removeFromSuperview()
+        actionButtonContainer?.removeFromSuperview()
+        scrollChannel?.setMethodCallHandler(nil)
     }
 
     private func setupTabBar(args: Any?) {
@@ -716,6 +742,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         scrollChannel?.setMethodCallHandler(nil)
         tabBarController?.willMove(toParent: nil)
         tabBarController?.removeFromParent()
+        
+        // Note: We don't clear sharedInstance here because cleanupViews() 
+        // is already called in init before creating new instance
     }
 
     // MARK: - Helpers

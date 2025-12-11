@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'liquid_tabbar_minimize'
-  s.version          = '1.0.3'
+  s.version          = '1.0.6'
   s.summary          = 'iOS native tab bar with scroll-to-minimize behavior for Flutter.'
   s.description      = <<-DESC
 A Flutter package providing iOS native tab bar with automatic minimize on scroll.

@@ -46,6 +46,14 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   double _lastScrollOffset = 0;
 
+  // Language toggle for testing locale label updates
+  bool _isEnglish = true;
+
+  // Dynamic labels based on language
+  List<String> get _labels => _isEnglish
+      ? ['Home', 'Explore', 'Favorites', 'Settings']
+      : ['主页', '探索', '收藏', '设置'];
+
   // Separate ScrollController for each page
   late final ScrollController _homeScrollController;
   late final ScrollController _exploreScrollController;
@@ -121,7 +129,23 @@ class _HomePageState extends State<HomePage> {
   // Dedicated page for each tab
   Widget _buildHomePage() {
     return Scaffold(
-      appBar: AppBar(title: const Text('Home'), backgroundColor: Colors.blue),
+      appBar: AppBar(
+        title: const Text('Home'),
+        backgroundColor: Colors.blue,
+        actions: [
+          // Language toggle button for testing
+          TextButton.icon(
+            onPressed: () {
+              setState(() => _isEnglish = !_isEnglish);
+            },
+            icon: const Icon(Icons.language, color: Colors.white),
+            label: Text(
+              _isEnglish ? 'EN' : '中文',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: _buildOverlayFab(context),
       body: ListView.builder(
         controller: _homeScrollController,
@@ -436,13 +460,22 @@ class _HomePageState extends State<HomePage> {
           _lastScrollOffset = 0;
           debugPrint('Tab index: $index');
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.public), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.home),
+            label: _labels[0],
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.public),
+            label: _labels[1],
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.star),
+            label: _labels[2],
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.settings),
+            label: _labels[3],
           ),
         ],
         sfSymbolMapper: _iconToSFSymbol,

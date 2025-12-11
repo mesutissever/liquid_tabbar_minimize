@@ -120,6 +120,29 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   }
 
   @override
+  void didUpdateWidget(covariant LiquidBottomNavigationBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if labels changed (for locale updates)
+    if (_useNative && _scrollChannel != null) {
+      final oldLabels = oldWidget.items.map((e) => e.label ?? '').toList();
+      final newLabels = widget.items.map((e) => e.label ?? '').toList();
+
+      if (!_listEquals(oldLabels, newLabels)) {
+        _scrollChannel!.invokeMethod('updateLabels', {'labels': newLabels});
+      }
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  @override
   void dispose() {
     if (LiquidBottomNavigationBar._nativeState == this) {
       LiquidBottomNavigationBar._nativeState = null;

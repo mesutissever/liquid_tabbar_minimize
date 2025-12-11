@@ -102,18 +102,29 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         SwiftUITabBarPlatformView.currentEventChannel = eventChannel
 
         scrollChannel?.setMethodCallHandler { [weak self] call, result in
-            guard
-                call.method == "onScroll",
-                let args = call.arguments as? [String: Any],
-                let offset = args["offset"] as? Double,
-                let delta = args["delta"] as? Double
-            else {
+            switch call.method {
+            case "onScroll":
+                guard let args = call.arguments as? [String: Any],
+                      let offset = args["offset"] as? Double,
+                      let delta = args["delta"] as? Double else {
+                    result(FlutterMethodNotImplemented)
+                    return
+                }
+                self?.handleScroll(offset: offset, delta: delta)
+                result(nil)
+                
+            case "updateLabels":
+                guard let args = call.arguments as? [String: Any],
+                      let labels = args["labels"] as? [String] else {
+                    result(FlutterMethodNotImplemented)
+                    return
+                }
+                self?.updateTabLabels(labels: labels)
+                result(nil)
+                
+            default:
                 result(FlutterMethodNotImplemented)
-                return
             }
-            print("SCROLL iOS offset=\(offset) delta=\(delta) isMin=\(self?.isMinimized ?? false)")
-            self?.handleScroll(offset: offset, delta: delta)
-            result(nil)
         }
         
         // Clean up any existing instance before creating new one
@@ -745,6 +756,22 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         
         // Note: We don't clear sharedInstance here because cleanupViews() 
         // is already called in init before creating new instance
+    }
+    
+    // MARK: - Dynamic Label Update
+    
+    private func updateTabLabels(labels: [String]) {
+        guard let items = tabBarController?.tabBar.items else { return }
+        
+        // Update all tab items with received labels
+        for (index, label) in labels.enumerated() {
+            if index < items.count {
+                let item = items[index]
+                item.title = label
+                // Also update the saved titles so they don't revert on minimize/expand
+                originalTitlesByTag[item.tag] = label
+            }
+        }
     }
 
     // MARK: - Helpers

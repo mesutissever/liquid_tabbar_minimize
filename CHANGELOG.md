@@ -1,5 +1,6 @@
 # 1.0.6
 * **iOS 26+ Fix**: Fixed native tab bar event channel issue when widget is disposed and recreated during route transitions (e.g., route replacement, logout/login flows). Each platform view now uses a unique channel ID to ensure reliable communication.
+* **Locale Support**: Fixed issue where tab bar labels did not update when the app locale changed. Labels now dynamically update via MethodChannel when locale or translations change.
 * Improved cleanup of previous native view instances when the widget is rebuilt.
 
 # 1.0.5

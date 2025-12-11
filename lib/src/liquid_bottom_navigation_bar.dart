@@ -66,6 +66,13 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   static final GlobalKey barKey = GlobalKey();
   static _LiquidBottomNavigationBarState? _nativeState;
 
+  /// Unique instance ID to avoid platform view collisions on hot restart
+  static int _instanceCounter = 0;
+  static int get _nextInstanceId {
+    _instanceCounter++;
+    return DateTime.now().millisecondsSinceEpoch + _instanceCounter;
+  }
+
   static void handleScroll(double offset, double delta) {
     final state = barKey.currentState;
     if (state is _CustomLiquidBarState) {
@@ -90,10 +97,13 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   MethodChannel? _scrollChannel;
   double _lastScrollOffset = 0.0;
   bool _isTopRoute = true;
+  int? _currentViewId; // Track the current native view ID
+  late int _instanceId; // Unique ID for hot restart support
 
   @override
   void initState() {
     super.initState();
+    _instanceId = LiquidBottomNavigationBar._nextInstanceId;
     // Set _nativeState immediately so handleScroll can find us
     LiquidBottomNavigationBar._nativeState = this;
     _checkIOSVersion();
@@ -123,13 +133,17 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   void didUpdateWidget(covariant LiquidBottomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Check if labels changed (for locale updates)
-    if (_useNative && _scrollChannel != null) {
+    // Update native labels when locale changes (only if native view is ready)
+    if (_useNative && _scrollChannel != null && _currentViewId != null) {
       final oldLabels = oldWidget.items.map((e) => e.label ?? '').toList();
       final newLabels = widget.items.map((e) => e.label ?? '').toList();
 
       if (!_listEquals(oldLabels, newLabels)) {
-        _scrollChannel!.invokeMethod('updateLabels', {'labels': newLabels});
+        _scrollChannel!
+            .invokeMethod('updateLabels', {'labels': newLabels})
+            .catchError((error) {
+              // Silently ignore - native view may have been recreated
+            });
       }
     }
   }
@@ -147,6 +161,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     if (LiquidBottomNavigationBar._nativeState == this) {
       LiquidBottomNavigationBar._nativeState = null;
     }
+    _currentViewId = null;
     _eventChannel?.setMethodCallHandler(null);
     LiquidRouteObserver.instance.unsubscribe(this);
     super.dispose();
@@ -272,15 +287,16 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                 child: UiKitView(
                   viewType: 'liquid_tabbar_minimize/swiftui_tabbar',
                   onPlatformViewCreated: (id) {
+                    _currentViewId = id;
+                    // Use _instanceId for channels to match native side
                     _scrollChannel = MethodChannel(
-                      'liquid_tabbar_minimize/scroll_$id',
+                      'liquid_tabbar_minimize/scroll_$_instanceId',
                     );
-                    // Setup event channel with unique viewId
-                    _setupEventChannel(id);
-                    // Set _nativeState AFTER channels are ready
+                    _setupEventChannel(_instanceId);
                     LiquidBottomNavigationBar._nativeState = this;
                   },
                   creationParams: {
+                    'instanceId': _instanceId,
                     'labels': widget.items.map((e) => e.label ?? '').toList(),
                     'sfSymbols': widget.items.map((e) {
                       final iconData = (e.icon as Icon).icon!;

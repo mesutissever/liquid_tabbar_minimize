@@ -208,69 +208,69 @@ class _HomePageState extends State<HomePage> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        FloatingActionButton.extended(
-          heroTag: 'sheet',
-          onPressed: () => _showDemoSheet(context),
-          label: const Text('Open sheet'),
-          icon: const Icon(Icons.keyboard_arrow_up),
-        ),
-        const SizedBox(height: 12),
-        FloatingActionButton.extended(
-          heroTag: 'push',
-          onPressed: () => _pushDemoPage(context),
-          label: const Text('Open page'),
-          icon: const Icon(Icons.open_in_new),
-        ),
+        // FloatingActionButton.extended(
+        //   heroTag: 'sheet',
+        //   onPressed: () => _showDemoSheet(context),
+        //   label: const Text('Open sheet'),
+        //   icon: const Icon(Icons.keyboard_arrow_up),
+        // ),
+        // const SizedBox(height: 12),
+        // FloatingActionButton.extended(
+        //   heroTag: 'push',
+        //   onPressed: () => _pushDemoPage(context),
+        //   label: const Text('Open page'),
+        //   icon: const Icon(Icons.open_in_new),
+        // ),
       ],
     );
   }
 
-  void _showDemoSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.8,
-          builder: (context, controller) {
-            return Material(
-              color: Theme.of(context).colorScheme.surface,
-              child: ListView.builder(
-                controller: controller,
-                itemCount: 30,
-                itemBuilder: (context, index) => ListTile(
-                  title: Text('Bottom sheet row ${index + 1}'),
-                  subtitle: const Text('Confirm tabbar hides under sheet'),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+  // void _showDemoSheet(BuildContext context) {
+  //   showModalBottomSheet<void>(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     useSafeArea: true,
+  //     builder: (context) {
+  //       return DraggableScrollableSheet(
+  //         expand: false,
+  //         initialChildSize: 0.8,
+  //         builder: (context, controller) {
+  //           return Material(
+  //             color: Theme.of(context).colorScheme.surface,
+  //             child: ListView.builder(
+  //               controller: controller,
+  //               itemCount: 30,
+  //               itemBuilder: (context, index) => ListTile(
+  //                 title: Text('Bottom sheet row ${index + 1}'),
+  //                 subtitle: const Text('Confirm tabbar hides under sheet'),
+  //               ),
+  //             ),
+  //           );
+  //         },
+  //       );
+  //     },
+  //   );
+  // }
 
-  void _pushDemoPage(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('New Page'),
-            backgroundColor: Colors.red,
-          ),
-          body: ListView.builder(
-            itemCount: 40,
-            itemBuilder: (context, index) => ListTile(
-              title: Text('Pushed page row ${index + 1}'),
-              subtitle: const Text('Tabbar hidden during transition?'),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // void _pushDemoPage(BuildContext context) {
+  //   Navigator.of(context).push(
+  //     MaterialPageRoute(
+  //       builder: (context) => Scaffold(
+  //         appBar: AppBar(
+  //           title: const Text('New Page'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //         body: ListView.builder(
+  //           itemCount: 40,
+  //           itemBuilder: (context, index) => ListTile(
+  //             title: Text('Pushed page row ${index + 1}'),
+  //             subtitle: const Text('Tabbar hidden during transition?'),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildExplorePage() {
     return Scaffold(

@@ -1,3 +1,9 @@
+# 1.0.8
+* **Navigation Fix**: Fixed scroll-to-minimize not working after navigating to another page and back. Uses `Visibility` widget to preserve native UiKitView state during route transitions.
+* **Initial Render Fix**: Removed async iOS version check delay - tab bar now renders immediately on first frame.
+* **Label Timing Fix**: Applied title text attributes immediately when creating UITabBarItem to prevent label flash on initial render.
+* **Layout Fix**: Set `itemPositioning = .fill` for consistent tab widths and prevent label truncation.
+
 # 1.0.7
 * **Hot Restart Fix**: Fixed scroll-to-minimize not working after hot restart in development. Each widget instance now uses a unique timestamp-based ID for channel communication.
 

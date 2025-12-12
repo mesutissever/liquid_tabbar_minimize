@@ -192,11 +192,24 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         var controllers: [UIViewController] = items.map { item in
             let vc = UIViewController()
             vc.view.backgroundColor = .clear
-            vc.tabBarItem = UITabBarItem(
+            let tabItem = UITabBarItem(
                 title: item.title,
                 image: UIImage(systemName: item.symbol),
                 tag: item.id
             )
+            // Apply title attributes immediately to prevent flash on initial render
+            switch labelVisibility {
+            case "never":
+                tabItem.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+                tabItem.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .selected)
+            case "selectedOnly":
+                tabItem.setTitleTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+                tabItem.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
+            default:
+                tabItem.setTitleTextAttributes([.foregroundColor: unselectedColor], for: .normal)
+                tabItem.setTitleTextAttributes([.foregroundColor: selectedColor], for: .selected)
+            }
+            vc.tabBarItem = tabItem
             return vc
         }
 
@@ -256,6 +269,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
         tabBar.layer.cornerRadius = 24
         tabBar.clipsToBounds = true
+        // Set itemPositioning to .fill for consistent layout and prevent label truncation
+        tabBar.itemPositioning = .fill
 
         tabController.view.translatesAutoresizingMaskIntoConstraints = false
         tabController.view.backgroundColor = .clear

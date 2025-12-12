@@ -91,8 +91,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
 
 class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     with RouteAware {
-  bool _useNative = false;
-  bool _isChecking = true;
+  late bool _useNative;
+  bool isChecking = false; // No longer need async checking
   MethodChannel? _eventChannel;
   MethodChannel? _scrollChannel;
   double _lastScrollOffset = 0.0;
@@ -104,10 +104,24 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   void initState() {
     super.initState();
     _instanceId = LiquidBottomNavigationBar._nextInstanceId;
+    // Check iOS version synchronously - no need for async
+    _useNative = _determineNativeSupport();
     // Set _nativeState immediately so handleScroll can find us
     LiquidBottomNavigationBar._nativeState = this;
-    _checkIOSVersion();
+    // Notify callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onNativeDetected?.call(_useNative);
+    });
     // Event and scroll channels will be setup after platform view is created
+  }
+
+  bool _determineNativeSupport() {
+    if (widget.forceCustomBar) return false;
+    if (!Platform.isIOS) return false;
+    // Parse major iOS version (e.g., "Version 18.0.1" -> 18)
+    final match = RegExp(r'(\d+)').firstMatch(Platform.operatingSystemVersion);
+    final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
+    return major >= 26;
   }
 
   void _setupEventChannel(int viewId) {
@@ -167,29 +181,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     super.dispose();
   }
 
-  Future<void> _checkIOSVersion() async {
-    // iOS 26+ uses native; others fall back to custom unless forceCustomBar is set.
-    if (widget.forceCustomBar) {
-      setState(() {
-        _useNative = false;
-        _isChecking = false;
-      });
-      widget.onNativeDetected?.call(false);
-      return;
-    }
-
-    // Parse major iOS version (e.g., "Version 18.0.1" -> 18)
-    final match = RegExp(r'(\d+)').firstMatch(Platform.operatingSystemVersion);
-    final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
-    final canUseNative = Platform.isIOS && major >= 26;
-
-    setState(() {
-      _useNative = canUseNative;
-      _isChecking = false;
-    });
-    widget.onNativeDetected?.call(canUseNative);
-  }
-
   @override
   Widget build(BuildContext context) {
     final route = ModalRoute.of(context);
@@ -226,7 +217,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   }
 
   Widget _buildBar(BuildContext context) {
-    if (_isChecking) {
+    if (isChecking) {
       return const SizedBox.shrink();
     }
     final bool isRtl = Directionality.of(context) == TextDirection.rtl;

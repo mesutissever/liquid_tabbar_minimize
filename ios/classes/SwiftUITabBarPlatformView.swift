@@ -155,6 +155,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let items = Self.parseItems(args: args)
         let includeAction = Self.parseActionFlag(args: args)
         let actionSymbol = Self.parseActionSymbol(args: args)
+        let actionImageBytes = Self.parseActionImageBytes(args: args)
+        let actionUseTemplate = Self.parseActionUseTemplate(args: args)
         let selectedColor = Self.parseSelectedColor(args: args)
         let unselectedColor = Self.parseUnselectedColor(args: args)
         enableMinimize = Self.parseEnableMinimize(args: args)
@@ -346,10 +348,29 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             if #available(iOS 13.0, *) {
                 actionBar.unselectedItemTintColor = unselectedColor
             }
+            
+            // Create action button image - custom PNG or SF Symbol
+            let actionImage: UIImage?
+            if let imageData = actionImageBytes, let customImage = UIImage(data: imageData) {
+                // Custom PNG image - scale to appropriate size
+                let targetSize = CGSize(width: 28, height: 28)
+                UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+                customImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
+                // Use template mode for tinting or original mode for preserving colors
+                actionImage = actionUseTemplate 
+                    ? resizedImage?.withRenderingMode(.alwaysTemplate)
+                    : resizedImage?.withRenderingMode(.alwaysOriginal)
+            } else {
+                // SF Symbol fallback
+                actionImage = UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol)
+            }
+            
             actionBar.items = [
                 UITabBarItem(
                     title: nil,
-                    image: UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol),
+                    image: actionImage,
                     tag: -1
                 )
             ]
@@ -827,6 +848,22 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             return "magnifyingglass"
         }
         return symbol
+    }
+
+    static func parseActionImageBytes(args: Any?) -> Data? {
+        guard let dict = args as? [String: Any],
+              let flutterData = dict["actionImageBytes"] as? FlutterStandardTypedData else {
+            return nil
+        }
+        return flutterData.data
+    }
+
+    static func parseActionUseTemplate(args: Any?) -> Bool {
+        guard let dict = args as? [String: Any],
+              let useTemplate = dict["actionUseTemplate"] as? Bool else {
+            return true
+        }
+        return useTemplate
     }
 
     static func parseEnableMinimize(args: Any?) -> Bool {

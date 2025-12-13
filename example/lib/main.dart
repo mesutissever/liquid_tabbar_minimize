@@ -496,7 +496,12 @@ class _HomePageState extends State<HomePage> {
         ],
         sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
-        actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+        // ActionButtonConfig supports .icon(), .asset(), and .image() factories
+        actionButton: ActionButtonConfig.icon(
+          const Icon(Icons.search),
+          'magnifyingglass',
+        ),
+
         onActionTap: () {
           debugPrint('Search tapped!');
           _stopCurrentScrollMomentum();

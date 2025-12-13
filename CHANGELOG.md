@@ -1,3 +1,11 @@
+# 1.0.9
+* **ActionButtonConfig**: New `ActionButtonConfig` class replaces the `actionIcon` tuple parameter with cleaner API:
+  * `ActionButtonConfig.icon(Icon, String)` - Flutter Icon + SF Symbol name
+  * `ActionButtonConfig.asset(String)` - Asset path for custom PNG images
+  * `ActionButtonConfig.image(Uint8List)` - Raw bytes for network/file images
+* **Template Rendering**: Custom images support `useTemplateRendering` option - set to `true` for tint color matching or `false` to preserve original colors
+* **Dynamic Image Update**: Action button images loaded from assets update native tab bar via MethodChannel
+
 # 1.0.8
 * **Navigation Fix**: Fixed scroll-to-minimize not working after navigating to another page and back. Uses `Visibility` widget to preserve native UiKitView state during route transitions.
 * **Initial Render Fix**: Removed async iOS version check delay - tab bar now renders immediately on first frame.

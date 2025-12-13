@@ -8,6 +8,64 @@ import 'liquid_route_observer.dart';
 /// Label visibility mode
 enum LabelVisibility { selectedOnly, always, never }
 
+/// Configuration for the action button - supports either SF Symbol/Icon or custom image
+class ActionButtonConfig {
+  /// Flutter Icon widget (for custom bar)
+  final Icon? icon;
+
+  /// SF Symbol name (for native iOS bar)
+  final String? sfSymbol;
+
+  /// Custom PNG image bytes (for both native and custom bar)
+  final Uint8List? imageBytes;
+
+  /// Asset path for bundled images (alternative to imageBytes)
+  final String? assetPath;
+
+  /// Whether to use template rendering (tintColor) or original colors
+  final bool useTemplateRendering;
+
+  const ActionButtonConfig._({
+    this.icon,
+    this.sfSymbol,
+    this.imageBytes,
+    this.assetPath,
+    this.useTemplateRendering = true,
+  });
+
+  /// Create action button with Icon and SF Symbol
+  factory ActionButtonConfig.icon(Icon icon, String sfSymbol) {
+    return ActionButtonConfig._(icon: icon, sfSymbol: sfSymbol);
+  }
+
+  /// Create action button with custom PNG image bytes
+  /// Set [useTemplateRendering] to false to preserve original PNG colors
+  factory ActionButtonConfig.image(
+    Uint8List imageBytes, {
+    bool useTemplateRendering = false,
+  }) {
+    return ActionButtonConfig._(
+      imageBytes: imageBytes,
+      useTemplateRendering: useTemplateRendering,
+    );
+  }
+
+  /// Create action button with asset path (e.g., 'assets/icon.png')
+  /// Set [useTemplateRendering] to false to preserve original PNG colors
+  factory ActionButtonConfig.asset(
+    String assetPath, {
+    bool useTemplateRendering = false,
+  }) {
+    return ActionButtonConfig._(
+      assetPath: assetPath,
+      useTemplateRendering: useTemplateRendering,
+    );
+  }
+
+  /// Whether this config uses a custom image (bytes or asset)
+  bool get isCustomImage => imageBytes != null || assetPath != null;
+}
+
 /// iOS native tab bar with scroll-to-minimize behavior.
 class LiquidBottomNavigationBar extends StatefulWidget {
   final int currentIndex;
@@ -15,7 +73,9 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final List<BottomNavigationBarItem> items;
   final List<int>? itemCounts;
   final bool showActionButton;
-  final (Icon, String)? actionIcon;
+
+  /// Action button configuration - use ActionButtonConfig.icon() or ActionButtonConfig.image()
+  final ActionButtonConfig? actionButton;
   final VoidCallback? onActionTap;
   final double height;
   final String Function(IconData)? sfSymbolMapper;
@@ -24,7 +84,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   final Color? unselectedItemColor;
   final ValueChanged<double>? onScroll;
   final LabelVisibility labelVisibility;
-  final double minimizeThreshold; // Scroll threshold (e.g. 0.1 = 10%)
+  final double minimizeThreshold; // Scroll threshold (e.g. 0.1 = 10%
   final bool forceCustomBar; // Force the custom bar instead of native
   /// Bottom offset to lift bar from home indicator. 0 = flush.
   final double bottomOffset;
@@ -45,7 +105,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.itemCounts,
     this.onTap,
     this.showActionButton = false,
-    this.actionIcon,
+    this.actionButton,
     this.onActionTap,
     this.height = 68,
     this.sfSymbolMapper,
@@ -99,6 +159,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   bool _isTopRoute = true;
   int? _currentViewId; // Track the current native view ID
   late int _instanceId; // Unique ID for hot restart support
+  Uint8List? _loadedAssetBytes; // Cached asset bytes for asset path config
 
   @override
   void initState() {
@@ -108,11 +169,31 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     _useNative = _determineNativeSupport();
     // Set _nativeState immediately so handleScroll can find us
     LiquidBottomNavigationBar._nativeState = this;
+    // Load asset if provided
+    _loadAssetIfNeeded();
     // Notify callback
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onNativeDetected?.call(_useNative);
     });
     // Event and scroll channels will be setup after platform view is created
+  }
+
+  void _loadAssetIfNeeded() {
+    final assetPath = widget.actionButton?.assetPath;
+    if (assetPath != null) {
+      rootBundle
+          .load(assetPath)
+          .then((data) {
+            if (mounted) {
+              setState(() {
+                _loadedAssetBytes = data.buffer.asUint8List();
+              });
+            }
+          })
+          .catchError((e) {
+            debugPrint('Failed to load action button asset: $e');
+          });
+    }
   }
 
   bool _determineNativeSupport() {
@@ -229,7 +310,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
         onTap: widget.onTap,
         items: widget.items,
         showActionButton: widget.showActionButton,
-        actionIcon: widget.actionIcon?.$1,
+        actionButton: widget.actionButton,
         onActionTap: widget.onActionTap,
         height: widget.height,
         selectedItemColor: widget.selectedItemColor,
@@ -247,7 +328,21 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     if (_useNative && Theme.of(context).platform == TargetPlatform.iOS) {
       final theme = Theme.of(context);
       final isDark = theme.brightness == Brightness.dark;
-      final actionSFSymbol = widget.actionIcon?.$2 ?? 'magnifyingglass';
+      final actionSFSymbol = widget.actionButton?.sfSymbol ?? 'magnifyingglass';
+      // Use imageBytes directly, or loaded asset bytes
+      final actionImageBytes =
+          widget.actionButton?.imageBytes ?? _loadedAssetBytes;
+
+      // If asset path is set but bytes not loaded yet, wait
+      final hasAssetPath = widget.actionButton?.assetPath != null;
+      final assetPending = hasAssetPath && _loadedAssetBytes == null;
+      if (assetPending) {
+        // Return a placeholder while asset is loading - don't create native view yet
+        return const SizedBox.shrink();
+      }
+
+      final useTemplateRendering =
+          widget.actionButton?.useTemplateRendering ?? true;
       final selectedColor =
           widget.selectedItemColor ?? theme.colorScheme.primary;
       final unselectedColor =
@@ -303,6 +398,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     'initialIndex': widget.currentIndex,
                     'enableActionTab': widget.showActionButton,
                     'actionSymbol': actionSFSymbol,
+                    'actionImageBytes': actionImageBytes,
+                    'actionUseTemplate': useTemplateRendering,
                     'selectedColorHex': toHex(selectedColor),
                     'unselectedColorHex': toHex(unselectedColor),
                     'enableMinimize': widget.enableMinimize,
@@ -328,7 +425,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
       onTap: widget.onTap,
       items: widget.items,
       showActionButton: widget.showActionButton,
-      actionIcon: widget.actionIcon?.$1,
+      actionButton: widget.actionButton,
       onActionTap: widget.onActionTap,
       height: widget.height,
       selectedItemColor: widget.selectedItemColor,
@@ -393,7 +490,7 @@ class _CustomLiquidBar extends StatefulWidget {
   final ValueChanged<int>? onTap;
   final List<BottomNavigationBarItem> items;
   final bool showActionButton;
-  final Icon? actionIcon;
+  final ActionButtonConfig? actionButton;
   final VoidCallback? onActionTap;
   final double height;
   final Color? selectedItemColor;
@@ -412,7 +509,7 @@ class _CustomLiquidBar extends StatefulWidget {
     required this.items,
     this.onTap,
     required this.showActionButton,
-    this.actionIcon,
+    this.actionButton,
     this.onActionTap,
     required this.height,
     this.selectedItemColor,
@@ -436,6 +533,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   int? _viewId;
   DateTime _ignoreScrollUntil = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _expandedLockUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  Uint8List? _loadedAssetBytes; // Cached asset bytes for asset path config
 
   final List<GlobalKey> _itemKeys = [];
 
@@ -444,6 +542,25 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     super.initState();
     _initNativeChannel();
     _initItemKeys();
+    _loadAssetIfNeeded();
+  }
+
+  void _loadAssetIfNeeded() {
+    final assetPath = widget.actionButton?.assetPath;
+    if (assetPath != null) {
+      rootBundle
+          .load(assetPath)
+          .then((data) {
+            if (mounted) {
+              setState(() {
+                _loadedAssetBytes = data.buffer.asUint8List();
+              });
+            }
+          })
+          .catchError((e) {
+            debugPrint('Failed to load action button asset: $e');
+          });
+    }
   }
 
   void _initItemKeys() {
@@ -477,6 +594,35 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
 
   void _lockExpanded(Duration duration) {
     _expandedLockUntil = DateTime.now().add(duration);
+  }
+
+  Widget _buildActionButtonContent(Color tintColor) {
+    final config = widget.actionButton;
+
+    // Get image bytes - directly provided or loaded from asset
+    final imageBytes = config?.imageBytes ?? _loadedAssetBytes;
+
+    // Custom image (bytes or asset)
+    if (imageBytes != null) {
+      final useTemplate = config?.useTemplateRendering ?? false;
+      final image = Image.memory(
+        imageBytes,
+        width: 28,
+        height: 28,
+        fit: BoxFit.contain,
+        color: useTemplate ? tintColor : null,
+        colorBlendMode: useTemplate ? BlendMode.srcIn : null,
+      );
+      return image;
+    }
+
+    // Icon from config
+    if (config?.icon != null) {
+      return config!.icon!;
+    }
+
+    // Default
+    return Icon(Icons.search, color: tintColor);
   }
 
   void handleScroll(double offset, double delta) {
@@ -655,9 +801,11 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                     ? selectedColor
                                     : unselectedColor,
                               ),
-                              child:
-                                  widget.actionIcon ??
-                                  Icon(Icons.search, color: selectedColor),
+                              child: _buildActionButtonContent(
+                                isActionSelected
+                                    ? selectedColor
+                                    : unselectedColor,
+                              ),
                             ),
                           ),
                         ),

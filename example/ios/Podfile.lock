@@ -2,7 +2,7 @@ PODS:
   - Flutter (1.0.0)
   - integration_test (0.0.1):
     - Flutter
-  - liquid_tabbar_minimize (1.0.6):
+  - liquid_tabbar_minimize (1.0.8):
     - Flutter
 
 DEPENDENCIES:
@@ -21,7 +21,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
-  liquid_tabbar_minimize: 691b82c5094b2e747706cd0c61dc827fb069b327
+  liquid_tabbar_minimize: cbc3d7e18df52e875ea6b808f5cdfa83e97a4f0f
 
 PODFILE CHECKSUM: 3ba3a73b1b12adcf321a227a745625fe0888cc82
 

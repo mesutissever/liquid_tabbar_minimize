@@ -27,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.6
+  liquid_tabbar_minimize: ^1.0.9
 ```
 ```bash
 flutter pub get
@@ -47,7 +47,7 @@ LiquidBottomNavigationBar(
     BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
   ],
   showActionButton: true,
-  actionIcon: (const Icon(Icons.add), 'plus'),
+  actionButton: ActionButtonConfig.icon(const Icon(Icons.add), 'plus'),
   onActionTap: () => debugPrint('Action tapped'),
   labelVisibility: LabelVisibility.always,
 );
@@ -104,7 +104,10 @@ LiquidBottomNavigationBar(
     return 'circle.fill';
   },
   showActionButton: true,
-  actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+  // Choose one of these ActionButtonConfig options:
+  actionButton: ActionButtonConfig.icon(const Icon(Icons.search), 'magnifyingglass'),
+  // actionButton: ActionButtonConfig.asset('assets/custom_icon.png'),
+  // actionButton: ActionButtonConfig.image(myPngBytes, useTemplateRendering: false),
   onActionTap: () => debugPrint('Action'),
   selectedItemColor: Colors.blue,
   unselectedItemColor: Colors.grey,
@@ -127,7 +130,7 @@ LiquidBottomNavigationBar(
 | `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5) |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
 | `showActionButton` | `bool` | false | Show optional action button |
-| `actionIcon` | `(Icon, String)?` | null | Action icon (Flutter icon, SF Symbol for native) |
+| `actionButton` | `ActionButtonConfig?` | null | Action button config - use `.icon()`, `.asset()`, or `.image()` |
 | `onActionTap` | `VoidCallback?` | null | Action button callback |
 | `selectedItemColor` | `Color?` | theme primary | Color for selected tab/action |
 | `unselectedItemColor` | `Color?` | auto | Color for unselected tabs/action |

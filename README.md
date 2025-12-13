@@ -47,7 +47,7 @@ LiquidBottomNavigationBar(
     BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
   ],
   showActionButton: true,
-  actionButton: ActionButtonConfig.icon(const Icon(Icons.add), 'plus'),
+  actionButton: ActionButtonConfig(const Icon(Icons.add), 'plus'),
   onActionTap: () => debugPrint('Action tapped'),
   labelVisibility: LabelVisibility.always,
 );
@@ -104,10 +104,10 @@ LiquidBottomNavigationBar(
     return 'circle.fill';
   },
   showActionButton: true,
-  // Choose one of these ActionButtonConfig options:
-  actionButton: ActionButtonConfig.icon(const Icon(Icons.search), 'magnifyingglass'),
+  // Option 1: Widget + SF Symbol
+  actionButton: ActionButtonConfig(const Icon(Icons.search), 'magnifyingglass'),
+  // Option 2: Asset for both Flutter and native iOS
   // actionButton: ActionButtonConfig.asset('assets/custom_icon.png'),
-  // actionButton: ActionButtonConfig.image(myPngBytes, useTemplateRendering: false),
   onActionTap: () => debugPrint('Action'),
   selectedItemColor: Colors.blue,
   unselectedItemColor: Colors.grey,
@@ -130,7 +130,7 @@ LiquidBottomNavigationBar(
 | `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5) |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
 | `showActionButton` | `bool` | false | Show optional action button |
-| `actionButton` | `ActionButtonConfig?` | null | Action button config - use `.icon()`, `.asset()`, or `.image()` |
+| `actionButton` | `ActionButtonConfig?` | null | Action button config - `ActionButtonConfig(Widget, sfSymbol)` or `.asset(path)` |
 | `onActionTap` | `VoidCallback?` | null | Action button callback |
 | `selectedItemColor` | `Color?` | theme primary | Color for selected tab/action |
 | `unselectedItemColor` | `Color?` | auto | Color for unselected tabs/action |

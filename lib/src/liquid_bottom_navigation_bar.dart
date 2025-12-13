@@ -8,62 +8,52 @@ import 'liquid_route_observer.dart';
 /// Label visibility mode
 enum LabelVisibility { selectedOnly, always, never }
 
-/// Configuration for the action button - supports either SF Symbol/Icon or custom image
+/// Configuration for the action button
+///
+/// Use the main constructor for Widget + SF Symbol:
+/// ```dart
+/// ActionButtonConfig(Icon(Icons.search), 'magnifyingglass')
+/// ActionButtonConfig(Image.asset('icon.png', width: 28), 'star')
+/// ```
+///
+/// Use `.asset()` when you want the same asset for both Flutter and native iOS:
+/// ```dart
+/// ActionButtonConfig.asset('assets/icon.png')
+/// ```
 class ActionButtonConfig {
-  /// Flutter Icon widget (for custom bar)
-  final Icon? icon;
+  /// Widget to display in custom bar (Icon, Image, or any Widget)
+  final Widget? widget;
 
   /// SF Symbol name (for native iOS bar)
   final String? sfSymbol;
 
-  /// Custom PNG image bytes (for both native and custom bar)
-  final Uint8List? imageBytes;
-
-  /// Asset path for bundled images (alternative to imageBytes)
+  /// Asset path for bundled images (used for both Flutter and native iOS)
   final String? assetPath;
 
   /// Whether to use template rendering (tintColor) or original colors
+  /// Only applies when using assetPath
   final bool useTemplateRendering;
 
-  const ActionButtonConfig._({
-    this.icon,
-    this.sfSymbol,
-    this.imageBytes,
-    this.assetPath,
-    this.useTemplateRendering = true,
-  });
+  /// Create action button with any Widget and SF Symbol name
+  ///
+  /// The [widget] is used for the custom bar (Flutter rendered)
+  /// The [sfSymbol] is used for native iOS 26+ bar
+  const ActionButtonConfig(this.widget, this.sfSymbol)
+    : assetPath = null,
+      useTemplateRendering = true;
 
-  /// Create action button with Icon and SF Symbol
-  factory ActionButtonConfig.icon(Icon icon, String sfSymbol) {
-    return ActionButtonConfig._(icon: icon, sfSymbol: sfSymbol);
-  }
+  /// Create action button using a single asset for both Flutter and native iOS
+  ///
+  /// Set [useTemplateRendering] to true for tint color matching,
+  /// or false to preserve original PNG colors
+  const ActionButtonConfig.asset(
+    this.assetPath, {
+    this.useTemplateRendering = false,
+  }) : widget = null,
+       sfSymbol = null;
 
-  /// Create action button with custom PNG image bytes
-  /// Set [useTemplateRendering] to false to preserve original PNG colors
-  factory ActionButtonConfig.image(
-    Uint8List imageBytes, {
-    bool useTemplateRendering = false,
-  }) {
-    return ActionButtonConfig._(
-      imageBytes: imageBytes,
-      useTemplateRendering: useTemplateRendering,
-    );
-  }
-
-  /// Create action button with asset path (e.g., 'assets/icon.png')
-  /// Set [useTemplateRendering] to false to preserve original PNG colors
-  factory ActionButtonConfig.asset(
-    String assetPath, {
-    bool useTemplateRendering = false,
-  }) {
-    return ActionButtonConfig._(
-      assetPath: assetPath,
-      useTemplateRendering: useTemplateRendering,
-    );
-  }
-
-  /// Whether this config uses a custom image (bytes or asset)
-  bool get isCustomImage => imageBytes != null || assetPath != null;
+  /// Whether this config uses asset path (for native image loading)
+  bool get isAssetBased => assetPath != null;
 }
 
 /// iOS native tab bar with scroll-to-minimize behavior.
@@ -329,9 +319,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
       final theme = Theme.of(context);
       final isDark = theme.brightness == Brightness.dark;
       final actionSFSymbol = widget.actionButton?.sfSymbol ?? 'magnifyingglass';
-      // Use imageBytes directly, or loaded asset bytes
-      final actionImageBytes =
-          widget.actionButton?.imageBytes ?? _loadedAssetBytes;
+      // Asset bytes loaded from assetPath (if any)
+      final actionImageBytes = _loadedAssetBytes;
 
       // If asset path is set but bytes not loaded yet, wait
       final hasAssetPath = widget.actionButton?.assetPath != null;
@@ -599,14 +588,11 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   Widget _buildActionButtonContent(Color tintColor) {
     final config = widget.actionButton;
 
-    // Get image bytes - directly provided or loaded from asset
-    final imageBytes = config?.imageBytes ?? _loadedAssetBytes;
-
-    // Custom image (bytes or asset)
-    if (imageBytes != null) {
+    // Asset-based image (loaded bytes)
+    if (_loadedAssetBytes != null) {
       final useTemplate = config?.useTemplateRendering ?? false;
       final image = Image.memory(
-        imageBytes,
+        _loadedAssetBytes!,
         width: 28,
         height: 28,
         fit: BoxFit.contain,
@@ -616,9 +602,9 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
       return image;
     }
 
-    // Icon from config
-    if (config?.icon != null) {
-      return config!.icon!;
+    // Widget from config (Icon, Image, etc.)
+    if (config?.widget != null) {
+      return config!.widget!;
     }
 
     // Default

@@ -496,8 +496,8 @@ class _HomePageState extends State<HomePage> {
         ],
         sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
-        // ActionButtonConfig supports .icon(), .asset(), and .image() factories
-        actionButton: ActionButtonConfig.icon(
+        // ActionButtonConfig(Widget, sfSymbol) or ActionButtonConfig.asset('path')
+        actionButton: ActionButtonConfig(
           const Icon(Icons.search),
           'magnifyingglass',
         ),

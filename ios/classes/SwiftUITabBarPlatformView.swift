@@ -373,8 +373,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                     ? resizedImage?.withRenderingMode(.alwaysTemplate)
                     : resizedImage?.withRenderingMode(.alwaysOriginal)
             } else {
-                // SF Symbol fallback
-                actionImage = UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol)
+                // SF Symbol fallback - try system symbol first, then custom symbol from Assets
+                let symbolName = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
+                actionImage = UIImage(systemName: symbolName) ?? UIImage(named: symbolName)
             }
             
             actionBar.items = [

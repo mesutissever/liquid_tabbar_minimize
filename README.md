@@ -92,6 +92,49 @@ NotificationListener<ScrollNotification>(
 );
 ```
 
+### Custom SF Symbols (iOS)
+You can use custom SF Symbols created in Apple's SF Symbols app alongside system symbols.
+
+**Step 1: Export from SF Symbols App**
+1. Open SF Symbols app and create/customize your symbol
+2. Select your symbol and go to **File → Export Symbol**
+3. Export as **SVG** format
+
+**Step 2: Add to Xcode Project**
+1. In Xcode, open your iOS project's `Assets.xcassets`
+2. Create a new folder with `.symbolset` extension (e.g., `myicon.symbolset`)
+3. Add your exported SVG file and a `Contents.json`:
+
+```
+ios/Runner/Assets.xcassets/
+└── myicon.symbolset/
+    ├── Contents.json
+    └── myicon.svg
+```
+
+**Contents.json:**
+```json
+{
+  "info": { "author": "xcode", "version": 1 },
+  "symbols": [{ "filename": "myicon.svg", "idiom": "universal" }]
+}
+```
+
+**Step 3: Use in Flutter**
+```dart
+// For tab items
+LiquidTabItem(
+  widget: Icon(Icons.star),
+  sfSymbol: 'myicon',  // Your custom symbol name
+  label: 'Custom',
+),
+
+// For action button
+actionButton: ActionButtonConfig(Icon(Icons.star), 'myicon'),
+```
+
+> **Note:** The plugin automatically tries system SF Symbol first, then falls back to your custom symbol from Assets.xcassets.
+
 ## Advanced Options
 ```dart
 LiquidBottomNavigationBar(

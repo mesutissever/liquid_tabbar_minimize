@@ -204,9 +204,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         var controllers: [UIViewController] = items.map { item in
             let vc = UIViewController()
             vc.view.backgroundColor = .clear
+            // Support both system SF Symbols and custom SF Symbols from Assets.xcassets
+            let symbolImage = UIImage(systemName: item.symbol) ?? UIImage(named: item.symbol)
             let tabItem = UITabBarItem(
                 title: item.title,
-                image: UIImage(systemName: item.symbol),
+                image: symbolImage,
                 tag: item.id
             )
             // Apply title attributes immediately to prevent flash on initial render

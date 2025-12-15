@@ -126,6 +126,16 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 self?.updateTabLabels(labels: labels)
                 result(nil)
                 
+            case "updateActionImage":
+                guard let args = call.arguments as? [String: Any],
+                      let imageData = args["imageBytes"] as? FlutterStandardTypedData else {
+                    result(FlutterMethodNotImplemented)
+                    return
+                }
+                let useTemplate = args["useTemplate"] as? Bool ?? false
+                self?.updateActionButtonImage(imageData: imageData.data, useTemplate: useTemplate)
+                result(nil)
+                
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -814,6 +824,27 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 // Also update the saved titles so they don't revert on minimize/expand
                 originalTitlesByTag[item.tag] = label
             }
+        }
+    }
+    
+    // MARK: - Dynamic Image Updates
+    
+    private func updateActionButtonImage(imageData: Data, useTemplate: Bool) {
+        guard let actionTabBar = self.actionTabBar else { return }
+        guard let customImage = UIImage(data: imageData) else { return }
+        
+        let targetSize = CGSize(width: 28, height: 28)
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+        customImage.draw(in: CGRect(origin: .zero, size: targetSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        let finalImage = useTemplate
+            ? resizedImage?.withRenderingMode(.alwaysTemplate)
+            : resizedImage?.withRenderingMode(.alwaysOriginal)
+        
+        if let actionItem = actionTabBar.items?.first {
+            actionItem.image = finalImage
         }
     }
 

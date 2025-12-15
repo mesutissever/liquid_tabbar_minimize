@@ -56,19 +56,46 @@ class ActionButtonConfig {
   bool get isAssetBased => assetPath != null;
 }
 
+/// Tab item configuration for LiquidBottomNavigationBar
+///
+/// ```dart
+/// LiquidTabItem(
+///   widget: Icon(Icons.home),
+///   sfSymbol: 'house.fill',
+///   label: 'Home',
+/// )
+/// ```
+class LiquidTabItem {
+  /// Widget to display in custom bar (Icon, Image, or any Widget)
+  final Widget widget;
+
+  /// SF Symbol name for native iOS 26+ bar
+  final String sfSymbol;
+
+  /// Label text for the tab
+  final String label;
+
+  const LiquidTabItem({
+    required this.widget,
+    required this.sfSymbol,
+    required this.label,
+  });
+}
+
 /// iOS native tab bar with scroll-to-minimize behavior.
 class LiquidBottomNavigationBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
-  final List<BottomNavigationBarItem> items;
+
+  /// Tab items - use LiquidTabItem for each tab
+  final List<LiquidTabItem> items;
   final List<int>? itemCounts;
   final bool showActionButton;
 
-  /// Action button configuration - use ActionButtonConfig.icon() or ActionButtonConfig.image()
+  /// Action button configuration - use ActionButtonConfig(Widget, sfSymbol) or ActionButtonConfig.asset()
   final ActionButtonConfig? actionButton;
   final VoidCallback? onActionTap;
   final double height;
-  final String Function(IconData)? sfSymbolMapper;
   final ValueChanged<bool>? onNativeDetected;
   final Color? selectedItemColor;
   final Color? unselectedItemColor;
@@ -98,7 +125,6 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.actionButton,
     this.onActionTap,
     this.height = 68,
-    this.sfSymbolMapper,
     this.onNativeDetected,
     this.selectedItemColor,
     this.unselectedItemColor,
@@ -149,7 +175,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
   bool _isTopRoute = true;
   int? _currentViewId; // Track the current native view ID
   late int _instanceId; // Unique ID for hot restart support
-  Uint8List? _loadedAssetBytes; // Cached asset bytes for asset path config
+  Uint8List? _loadedAssetBytes; // Cached asset bytes for action button
 
   @override
   void initState() {
@@ -178,6 +204,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
               setState(() {
                 _loadedAssetBytes = data.buffer.asUint8List();
               });
+              _updateNativeActionImage(data.buffer.asUint8List());
             }
           })
           .catchError((e) {
@@ -193,6 +220,19 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     final match = RegExp(r'(\d+)').firstMatch(Platform.operatingSystemVersion);
     final major = match != null ? int.tryParse(match.group(1) ?? '0') ?? 0 : 0;
     return major >= 26;
+  }
+
+  void _updateNativeActionImage(Uint8List bytes) {
+    if (_scrollChannel == null) return;
+    final useTemplate = widget.actionButton?.useTemplateRendering ?? false;
+    _scrollChannel!
+        .invokeMethod('updateActionImage', {
+          'imageBytes': bytes,
+          'useTemplate': useTemplate,
+        })
+        .catchError((e) {
+          debugPrint('Failed to update native action image: $e');
+        });
   }
 
   void _setupEventChannel(int viewId) {
@@ -220,8 +260,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
 
     // Update native labels when locale changes (only if native view is ready)
     if (_useNative && _scrollChannel != null && _currentViewId != null) {
-      final oldLabels = oldWidget.items.map((e) => e.label ?? '').toList();
-      final newLabels = widget.items.map((e) => e.label ?? '').toList();
+      final oldLabels = oldWidget.items.map((e) => e.label).toList();
+      final newLabels = widget.items.map((e) => e.label).toList();
 
       if (!_listEquals(oldLabels, newLabels)) {
         _scrollChannel!
@@ -378,12 +418,8 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                   },
                   creationParams: {
                     'instanceId': _instanceId,
-                    'labels': widget.items.map((e) => e.label ?? '').toList(),
-                    'sfSymbols': widget.items.map((e) {
-                      final iconData = (e.icon as Icon).icon!;
-                      return widget.sfSymbolMapper?.call(iconData) ??
-                          'circle.fill';
-                    }).toList(),
+                    'labels': widget.items.map((e) => e.label).toList(),
+                    'sfSymbols': widget.items.map((e) => e.sfSymbol).toList(),
                     'initialIndex': widget.currentIndex,
                     'enableActionTab': widget.showActionButton,
                     'actionSymbol': actionSFSymbol,
@@ -477,7 +513,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
 class _CustomLiquidBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
-  final List<BottomNavigationBarItem> items;
+  final List<LiquidTabItem> items;
   final bool showActionButton;
   final ActionButtonConfig? actionButton;
   final VoidCallback? onActionTap;
@@ -522,7 +558,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   int? _viewId;
   DateTime _ignoreScrollUntil = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _expandedLockUntil = DateTime.fromMillisecondsSinceEpoch(0);
-  Uint8List? _loadedAssetBytes; // Cached asset bytes for asset path config
+  Uint8List? _loadedAssetBytes; // Cached asset bytes for action button
 
   final List<GlobalKey> _itemKeys = [];
 
@@ -609,6 +645,10 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
 
     // Default
     return Icon(Icons.search, color: tintColor);
+  }
+
+  Widget _buildTabItemWidget(int index, LiquidTabItem item, Color tintColor) {
+    return item.widget;
   }
 
   void handleScroll(double offset, double delta) {
@@ -816,8 +856,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     for (int i = 0; i < widget.items.length; i++) {
       final item = widget.items[i];
       final isSelected = widget.currentIndex == i;
-      final showLabel = item.label != null && _shouldShowLabel(isSelected);
-      final int labelLength = item.label?.length ?? 0;
+      final showLabel = _shouldShowLabel(isSelected);
+      final int labelLength = item.label.length;
       final int extraFlex = showLabel ? (labelLength > 6 ? 2 : 1) : 0;
       flexValues.add(10 + (isSelected ? extraFlex : 0));
     }
@@ -892,8 +932,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                   children: List.generate(widget.items.length, (index) {
                     final item = widget.items[index];
                     final isSelected = widget.currentIndex == index;
-                    final showLabel =
-                        item.label != null && _shouldShowLabel(isSelected);
+                    final showLabel = _shouldShowLabel(isSelected);
 
                     return Expanded(
                       flex: flexValues[index],
@@ -927,7 +966,13 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                         ? selectedColor
                                         : unselectedColor,
                                   ),
-                                  child: item.icon,
+                                  child: _buildTabItemWidget(
+                                    index,
+                                    item,
+                                    isSelected
+                                        ? selectedColor
+                                        : unselectedColor,
+                                  ),
                                 ),
                               ),
                               if (showLabel) ...[
@@ -946,7 +991,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                     letterSpacing: 0.1,
                                   ),
                                   child: Text(
-                                    item.label!,
+                                    item.label,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1012,7 +1057,11 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
         child: Center(
           child: IconTheme(
             data: IconThemeData(size: 26, color: selectedColor),
-            child: item.icon,
+            child: _buildTabItemWidget(
+              widget.currentIndex,
+              item,
+              selectedColor,
+            ),
           ),
         ),
       ),

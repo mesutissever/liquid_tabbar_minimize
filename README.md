@@ -41,16 +41,21 @@ import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
 LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
   onTap: (index) => setState(() => _selectedIndex = index),
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-    BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-    BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+  items: [
+    LiquidTabItem(widget: Icon(Icons.home), sfSymbol: 'house.fill', label: 'Home'),
+    LiquidTabItem(widget: Icon(Icons.search), sfSymbol: 'magnifyingglass', label: 'Search'),
+    LiquidTabItem(widget: Icon(Icons.settings), sfSymbol: 'gearshape.fill', label: 'Settings'),
   ],
   showActionButton: true,
   actionButton: ActionButtonConfig(const Icon(Icons.add), 'plus'),
   onActionTap: () => debugPrint('Action tapped'),
   labelVisibility: LabelVisibility.always,
 );
+```
+
+### Using Asset Images for Action Button
+```dart
+actionButton: ActionButtonConfig.asset('assets/search.png'),
 ```
 
 ### Navigation observers (for native bar + instant hide)
@@ -92,17 +97,12 @@ NotificationListener<ScrollNotification>(
 LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
   onTap: (i) => setState(() => _selectedIndex = i),
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-    BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-    BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
-    BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+  items: [
+    LiquidTabItem(widget: Icon(Icons.home), sfSymbol: 'house.fill', label: 'Home'),
+    LiquidTabItem(widget: Icon(Icons.explore), sfSymbol: 'globe', label: 'Explore'),
+    LiquidTabItem(widget: Icon(Icons.star), sfSymbol: 'star.fill', label: 'Favorites'),
+    LiquidTabItem(widget: Icon(Icons.settings), sfSymbol: 'gearshape.fill', label: 'Settings'),
   ],
-  sfSymbolMapper: (icon) {
-    if (icon == Icons.home) return 'house.fill';
-    if (icon == Icons.explore) return 'globe';
-    return 'circle.fill';
-  },
   showActionButton: true,
   // Option 1: Widget + SF Symbol
   actionButton: ActionButtonConfig(const Icon(Icons.search), 'magnifyingglass'),
@@ -127,7 +127,7 @@ LiquidBottomNavigationBar(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `currentIndex` | `int` | required | Currently selected tab index |
-| `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5) |
+| `items` | `List<LiquidTabItem>` | required | Tab items with widget, sfSymbol, and label |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
 | `showActionButton` | `bool` | false | Show optional action button |
 | `actionButton` | `ActionButtonConfig?` | null | Action button config - `ActionButtonConfig(Widget, sfSymbol)` or `.asset(path)` |

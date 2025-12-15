@@ -63,8 +63,8 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
-  static final GlobalKey barKey = GlobalKey();
   static _LiquidBottomNavigationBarState? _nativeState;
+  static _CustomLiquidBarState? _customState;
 
   /// Unique instance ID to avoid platform view collisions on hot restart
   static int _instanceCounter = 0;
@@ -74,9 +74,9 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }
 
   static void handleScroll(double offset, double delta) {
-    final state = barKey.currentState;
-    if (state is _CustomLiquidBarState) {
-      state.handleScroll(offset, delta);
+    // Use direct state reference instead of GlobalKey to avoid hot-reload issues
+    if (_customState != null) {
+      _customState!.handleScroll(offset, delta);
       return;
     }
 
@@ -224,7 +224,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
 
     if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
       return _CustomLiquidBar(
-        key: LiquidBottomNavigationBar.barKey,
         currentIndex: widget.currentIndex,
         onTap: widget.onTap,
         items: widget.items,
@@ -323,7 +322,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     }
 
     return _CustomLiquidBar(
-      key: LiquidBottomNavigationBar.barKey,
       currentIndex: widget.currentIndex,
       onTap: widget.onTap,
       items: widget.items,
@@ -442,8 +440,17 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   @override
   void initState() {
     super.initState();
+    LiquidBottomNavigationBar._customState = this;
     _initNativeChannel();
     _initItemKeys();
+  }
+
+  @override
+  void dispose() {
+    if (LiquidBottomNavigationBar._customState == this) {
+      LiquidBottomNavigationBar._customState = null;
+    }
+    super.dispose();
   }
 
   void _initItemKeys() {

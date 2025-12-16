@@ -468,8 +468,10 @@ class _HomePageState extends State<HomePage> {
         },
         items: [
           LiquidTabItem(
-            widget: const Icon(Icons.home),
-            sfSymbol: 'house.fill',
+            widget: const Icon(Icons.home_outlined),
+            selectedWidget: const Icon(Icons.home),
+            sfSymbol: 'house',
+            selectedSfSymbol: 'house.fill',
             label: _labels[0],
           ),
           LiquidTabItem(
@@ -478,13 +480,17 @@ class _HomePageState extends State<HomePage> {
             label: _labels[1],
           ),
           LiquidTabItem(
-            widget: const Icon(Icons.star),
-            sfSymbol: 'star.fill',
+            widget: const Icon(Icons.star_outline),
+            selectedWidget: const Icon(Icons.star),
+            sfSymbol: 'star',
+            selectedSfSymbol: 'star.fill',
             label: _labels[2],
           ),
           LiquidTabItem(
-            widget: const Icon(Icons.settings),
-            sfSymbol: 'gearshape.fill',
+            widget: const Icon(Icons.settings_outlined),
+            selectedWidget: const Icon(Icons.settings),
+            sfSymbol: 'gearshape',
+            selectedSfSymbol: 'gearshape.fill',
             label: _labels[3],
           ),
         ],

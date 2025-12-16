@@ -42,9 +42,25 @@ LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
   onTap: (index) => setState(() => _selectedIndex = index),
   items: [
-    LiquidTabItem(widget: Icon(Icons.home), sfSymbol: 'house.fill', label: 'Home'),
-    LiquidTabItem(widget: Icon(Icons.search), sfSymbol: 'magnifyingglass', label: 'Search'),
-    LiquidTabItem(widget: Icon(Icons.settings), sfSymbol: 'gearshape.fill', label: 'Settings'),
+    LiquidTabItem(
+      widget: Icon(Icons.home_outlined),
+      selectedWidget: Icon(Icons.home),  // Optional: shown when selected
+      sfSymbol: 'house',
+      selectedSfSymbol: 'house.fill',    // Optional: native iOS selected
+      label: 'Home',
+    ),
+    LiquidTabItem(
+      widget: Icon(Icons.search),
+      sfSymbol: 'magnifyingglass',
+      label: 'Search',
+    ),
+    LiquidTabItem(
+      widget: Icon(Icons.settings_outlined),
+      selectedWidget: Icon(Icons.settings),
+      sfSymbol: 'gearshape',
+      selectedSfSymbol: 'gearshape.fill',
+      label: 'Settings',
+    ),
   ],
   showActionButton: true,
   actionButton: ActionButtonConfig(const Icon(Icons.add), 'plus'),

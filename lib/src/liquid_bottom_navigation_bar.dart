@@ -60,24 +60,34 @@ class ActionButtonConfig {
 ///
 /// ```dart
 /// LiquidTabItem(
-///   widget: Icon(Icons.home),
-///   sfSymbol: 'house.fill',
+///   widget: Icon(Icons.home_outlined),
+///   selectedWidget: Icon(Icons.home),  // Optional - shown when selected
+///   sfSymbol: 'house',
+///   selectedSfSymbol: 'house.fill',    // Optional - shown when selected on native iOS
 ///   label: 'Home',
 /// )
 /// ```
 class LiquidTabItem {
-  /// Widget to display in custom bar (Icon, Image, or any Widget)
+  /// Widget to display when unselected in custom bar (Icon, Image, or any Widget)
   final Widget widget;
 
-  /// SF Symbol name for native iOS 26+ bar
+  /// Widget to display when selected in custom bar (optional, falls back to [widget])
+  final Widget? selectedWidget;
+
+  /// SF Symbol name for unselected state on native iOS 26+ bar
   final String sfSymbol;
+
+  /// SF Symbol name for selected state on native iOS 26+ bar (optional, falls back to [sfSymbol])
+  final String? selectedSfSymbol;
 
   /// Label text for the tab
   final String label;
 
   const LiquidTabItem({
     required this.widget,
+    this.selectedWidget,
     required this.sfSymbol,
+    this.selectedSfSymbol,
     required this.label,
   });
 }
@@ -139,7 +149,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
-  static final GlobalKey barKey = GlobalKey();
+  static _CustomLiquidBarState? _customState;
   static _LiquidBottomNavigationBarState? _nativeState;
 
   /// Unique instance ID to avoid platform view collisions on hot restart
@@ -150,12 +160,13 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }
 
   static void handleScroll(double offset, double delta) {
-    final state = barKey.currentState;
-    if (state is _CustomLiquidBarState) {
-      state.handleScroll(offset, delta);
+    // Try custom bar state first
+    if (_customState != null) {
+      _customState!.handleScroll(offset, delta);
       return;
     }
 
+    // Fall back to native state
     if (_nativeState == null) return;
     _nativeState?._sendScrollToNative(offset, delta);
   }
@@ -335,7 +346,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
 
     if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
       return _CustomLiquidBar(
-        key: LiquidBottomNavigationBar.barKey,
         currentIndex: widget.currentIndex,
         onTap: widget.onTap,
         items: widget.items,
@@ -420,6 +430,9 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     'instanceId': _instanceId,
                     'labels': widget.items.map((e) => e.label).toList(),
                     'sfSymbols': widget.items.map((e) => e.sfSymbol).toList(),
+                    'selectedSfSymbols': widget.items
+                        .map((e) => e.selectedSfSymbol ?? e.sfSymbol)
+                        .toList(),
                     'initialIndex': widget.currentIndex,
                     'enableActionTab': widget.showActionButton,
                     'actionSymbol': actionSFSymbol,
@@ -445,7 +458,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     }
 
     return _CustomLiquidBar(
-      key: LiquidBottomNavigationBar.barKey,
       currentIndex: widget.currentIndex,
       onTap: widget.onTap,
       items: widget.items,
@@ -529,7 +541,6 @@ class _CustomLiquidBar extends StatefulWidget {
   final bool isRtl;
 
   const _CustomLiquidBar({
-    super.key,
     required this.currentIndex,
     required this.items,
     this.onTap,
@@ -565,6 +576,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   @override
   void initState() {
     super.initState();
+    // Register this state for handleScroll access
+    LiquidBottomNavigationBar._customState = this;
     _initNativeChannel();
     _initItemKeys();
     _loadAssetIfNeeded();
@@ -608,6 +621,15 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     }
   }
 
+  @override
+  void dispose() {
+    // Unregister this state
+    if (LiquidBottomNavigationBar._customState == this) {
+      LiquidBottomNavigationBar._customState = null;
+    }
+    super.dispose();
+  }
+
   void _initNativeChannel() {
     _viewId = DateTime.now().millisecondsSinceEpoch;
     _nativeChannel = MethodChannel('liquid_tabbar_minimize/methods_$_viewId');
@@ -647,8 +669,14 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     return Icon(Icons.search, color: tintColor);
   }
 
-  Widget _buildTabItemWidget(int index, LiquidTabItem item, Color tintColor) {
-    return item.widget;
+  Widget _buildTabItemWidget(
+    int index,
+    LiquidTabItem item,
+    Color tintColor, {
+    bool isSelected = false,
+  }) {
+    // Use selectedWidget when selected, fallback to widget
+    return isSelected ? (item.selectedWidget ?? item.widget) : item.widget;
   }
 
   void handleScroll(double offset, double delta) {
@@ -972,6 +1000,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                                     isSelected
                                         ? selectedColor
                                         : unselectedColor,
+                                    isSelected: isSelected,
                                   ),
                                 ),
                               ),
@@ -1061,6 +1090,7 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
               widget.currentIndex,
               item,
               selectedColor,
+              isSelected: true,
             ),
           ),
         ),

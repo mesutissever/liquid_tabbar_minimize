@@ -8,6 +8,7 @@ struct NativeTabItemData: Identifiable {
     let id: Int
     let title: String
     let symbol: String
+    let selectedSymbol: String
 }
 
 // MARK: - Platform View
@@ -206,11 +207,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             vc.view.backgroundColor = .clear
             // Support both system SF Symbols and custom SF Symbols from Assets.xcassets
             let symbolImage = UIImage(systemName: item.symbol) ?? UIImage(named: item.symbol)
+            let selectedImage = UIImage(systemName: item.selectedSymbol) ?? UIImage(named: item.selectedSymbol)
             let tabItem = UITabBarItem(
                 title: item.title,
                 image: symbolImage,
-                tag: item.id
+                selectedImage: selectedImage
             )
+            tabItem.tag = item.id
             // Apply title attributes immediately to prevent flash on initial render
             switch labelVisibility {
             case "never":
@@ -865,11 +868,13 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
               let symbols = dict["sfSymbols"] as? [String] else {
             return SwiftUITabBarPlatformView.defaultItems()
         }
+        let selectedSymbols = dict["selectedSfSymbols"] as? [String] ?? symbols
         let count = min(labels.count, symbols.count)
         if count == 0 { return SwiftUITabBarPlatformView.defaultItems() }
         var items: [NativeTabItemData] = []
         for i in 0..<count {
-            items.append(NativeTabItemData(id: i, title: labels[i], symbol: symbols[i]))
+            let selectedSym = i < selectedSymbols.count ? selectedSymbols[i] : symbols[i]
+            items.append(NativeTabItemData(id: i, title: labels[i], symbol: symbols[i], selectedSymbol: selectedSym))
         }
         return items
     }
@@ -1003,9 +1008,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func defaultItems() -> [NativeTabItemData] {
         return [
-            NativeTabItemData(id: 0, title: "Home", symbol: "house.fill"),
-            NativeTabItemData(id: 1, title: "Explore", symbol: "globe"),
-            NativeTabItemData(id: 2, title: "Settings", symbol: "gearshape.fill"),
+            NativeTabItemData(id: 0, title: "Home", symbol: "house", selectedSymbol: "house.fill"),
+            NativeTabItemData(id: 1, title: "Explore", symbol: "globe", selectedSymbol: "globe"),
+            NativeTabItemData(id: 2, title: "Settings", symbol: "gearshape", selectedSymbol: "gearshape.fill"),
         ]
     }
 }

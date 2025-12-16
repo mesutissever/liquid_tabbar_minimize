@@ -391,7 +391,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionBar.itemWidth = 0
             actionBar.itemSpacing = 0
             actionBar.layer.cornerRadius = pillWidth / 2
-            actionBar.clipsToBounds = true
+            actionBar.layer.masksToBounds = true
+            // Prevent internal shadow/selection from being clipped at edges
+            actionBar.clipsToBounds = false
 
             if #available(iOS 15.0, *) {
                 let appearance = UITabBarAppearance()
@@ -403,6 +405,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
                 appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
                 appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
+                // Remove selection indicator background to prevent clipping issues
+                if #available(iOS 26.0, *) {
+                    appearance.selectionIndicatorTintColor = .clear
+                }
                 appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
                 appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
                 actionBar.standardAppearance = appearance

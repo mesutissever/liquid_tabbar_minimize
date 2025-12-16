@@ -1,3 +1,15 @@
+# 1.0.9
+* **BREAKING**: `LiquidTabItem` replaces `BottomNavigationBarItem` - each item now has `widget`, `sfSymbol`, and `label`
+* **BREAKING**: `sfSymbolMapper` parameter removed - SF Symbol is now part of `LiquidTabItem`
+* **Custom SF Symbols Support**: Added support for custom SF Symbols created in SF Symbols app
+  * Both tab items and action button now support custom SF Symbols from Assets.xcassets
+  * If system SF Symbol not found, automatically loads custom symbol from app bundle
+* **ActionButtonConfig**: New class with cleaner API:
+  * `ActionButtonConfig(Widget, String)` - Any widget + SF Symbol for native iOS
+  * `ActionButtonConfig.asset(String)` - Single asset path for both Flutter and native iOS
+* **Template Rendering**: Action button asset images support `useTemplateRendering` option for tint color matching
+* **Removed**: Old `LiquidTabBar` widget removed - use `LiquidBottomNavigationBar` instead
+
 # 1.0.8
 * **Navigation Fix**: Fixed scroll-to-minimize not working after navigating to another page and back. Uses `Visibility` widget to preserve native UiKitView state during route transitions.
 * **Initial Render Fix**: Removed async iOS version check delay - tab bar now renders immediately on first frame.

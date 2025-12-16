@@ -126,6 +126,16 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 self?.updateTabLabels(labels: labels)
                 result(nil)
                 
+            case "updateActionImage":
+                guard let args = call.arguments as? [String: Any],
+                      let imageData = args["imageBytes"] as? FlutterStandardTypedData else {
+                    result(FlutterMethodNotImplemented)
+                    return
+                }
+                let useTemplate = args["useTemplate"] as? Bool ?? false
+                self?.updateActionButtonImage(imageData: imageData.data, useTemplate: useTemplate)
+                result(nil)
+                
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -155,6 +165,8 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         let items = Self.parseItems(args: args)
         let includeAction = Self.parseActionFlag(args: args)
         let actionSymbol = Self.parseActionSymbol(args: args)
+        let actionImageBytes = Self.parseActionImageBytes(args: args)
+        let actionUseTemplate = Self.parseActionUseTemplate(args: args)
         let selectedColor = Self.parseSelectedColor(args: args)
         let unselectedColor = Self.parseUnselectedColor(args: args)
         enableMinimize = Self.parseEnableMinimize(args: args)
@@ -192,9 +204,11 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         var controllers: [UIViewController] = items.map { item in
             let vc = UIViewController()
             vc.view.backgroundColor = .clear
+            // Support both system SF Symbols and custom SF Symbols from Assets.xcassets
+            let symbolImage = UIImage(systemName: item.symbol) ?? UIImage(named: item.symbol)
             let tabItem = UITabBarItem(
                 title: item.title,
-                image: UIImage(systemName: item.symbol),
+                image: symbolImage,
                 tag: item.id
             )
             // Apply title attributes immediately to prevent flash on initial render
@@ -346,10 +360,30 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             if #available(iOS 13.0, *) {
                 actionBar.unselectedItemTintColor = unselectedColor
             }
+            
+            // Create action button image - custom PNG or SF Symbol
+            let actionImage: UIImage?
+            if let imageData = actionImageBytes, let customImage = UIImage(data: imageData) {
+                // Custom PNG image - scale to appropriate size
+                let targetSize = CGSize(width: 28, height: 28)
+                UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+                customImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
+                // Use template mode for tinting or original mode for preserving colors
+                actionImage = actionUseTemplate 
+                    ? resizedImage?.withRenderingMode(.alwaysTemplate)
+                    : resizedImage?.withRenderingMode(.alwaysOriginal)
+            } else {
+                // SF Symbol fallback - try system symbol first, then custom symbol from Assets
+                let symbolName = actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol
+                actionImage = UIImage(systemName: symbolName) ?? UIImage(named: symbolName)
+            }
+            
             actionBar.items = [
                 UITabBarItem(
                     title: nil,
-                    image: UIImage(systemName: actionSymbol.isEmpty ? "magnifyingglass" : actionSymbol),
+                    image: actionImage,
                     tag: -1
                 )
             ]
@@ -357,7 +391,9 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             actionBar.itemWidth = 0
             actionBar.itemSpacing = 0
             actionBar.layer.cornerRadius = pillWidth / 2
-            actionBar.clipsToBounds = true
+            actionBar.layer.masksToBounds = true
+            // Prevent internal shadow/selection from being clipped at edges
+            actionBar.clipsToBounds = false
 
             if #available(iOS 15.0, *) {
                 let appearance = UITabBarAppearance()
@@ -369,6 +405,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
                 appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
                 appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
+                // Remove selection indicator background to prevent clipping issues
+                if #available(iOS 26.0, *) {
+                    appearance.selectionIndicatorTintColor = .clear
+                }
                 appearance.inlineLayoutAppearance = appearance.stackedLayoutAppearance
                 appearance.compactInlineLayoutAppearance = appearance.stackedLayoutAppearance
                 actionBar.standardAppearance = appearance
@@ -795,6 +835,27 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             }
         }
     }
+    
+    // MARK: - Dynamic Image Updates
+    
+    private func updateActionButtonImage(imageData: Data, useTemplate: Bool) {
+        guard let actionTabBar = self.actionTabBar else { return }
+        guard let customImage = UIImage(data: imageData) else { return }
+        
+        let targetSize = CGSize(width: 28, height: 28)
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+        customImage.draw(in: CGRect(origin: .zero, size: targetSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        let finalImage = useTemplate
+            ? resizedImage?.withRenderingMode(.alwaysTemplate)
+            : resizedImage?.withRenderingMode(.alwaysOriginal)
+        
+        if let actionItem = actionTabBar.items?.first {
+            actionItem.image = finalImage
+        }
+    }
 
     // MARK: - Helpers
 
@@ -827,6 +888,22 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
             return "magnifyingglass"
         }
         return symbol
+    }
+
+    static func parseActionImageBytes(args: Any?) -> Data? {
+        guard let dict = args as? [String: Any],
+              let flutterData = dict["actionImageBytes"] as? FlutterStandardTypedData else {
+            return nil
+        }
+        return flutterData.data
+    }
+
+    static func parseActionUseTemplate(args: Any?) -> Bool {
+        guard let dict = args as? [String: Any],
+              let useTemplate = dict["actionUseTemplate"] as? Bool else {
+            return true
+        }
+        return useTemplate
     }
 
     static func parseEnableMinimize(args: Any?) -> Bool {

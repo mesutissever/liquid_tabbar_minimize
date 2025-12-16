@@ -116,16 +116,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // iOS 26+ SF Symbol mapping
-  String _iconToSFSymbol(IconData icon) {
-    if (icon == Icons.home) return 'house.fill';
-    if (icon == Icons.public) return 'globe';
-    if (icon == Icons.star) return 'star.fill';
-    if (icon == Icons.settings) return 'gearshape.fill';
-
-    return 'circle.fill'; // fallback
-  }
-
   // Dedicated page for each tab
   Widget _buildHomePage() {
     return Scaffold(
@@ -477,26 +467,34 @@ class _HomePageState extends State<HomePage> {
           debugPrint('Tab index: $index');
         },
         items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.home),
+          LiquidTabItem(
+            widget: const Icon(Icons.home),
+            sfSymbol: 'house.fill',
             label: _labels[0],
           ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.public),
+          LiquidTabItem(
+            widget: const Icon(Icons.public),
+            sfSymbol: 'globe',
             label: _labels[1],
           ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.star),
+          LiquidTabItem(
+            widget: const Icon(Icons.star),
+            sfSymbol: 'star.fill',
             label: _labels[2],
           ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
+          LiquidTabItem(
+            widget: const Icon(Icons.settings),
+            sfSymbol: 'gearshape.fill',
             label: _labels[3],
           ),
         ],
-        sfSymbolMapper: _iconToSFSymbol,
         showActionButton: true,
-        actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+        // ActionButtonConfig(Widget, sfSymbol) or ActionButtonConfig.asset('path')
+        actionButton: ActionButtonConfig(
+          const Icon(Icons.search),
+          'magnifyingglass',
+        ),
+
         onActionTap: () {
           debugPrint('Search tapped!');
           _stopCurrentScrollMomentum();

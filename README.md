@@ -27,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.6
+  liquid_tabbar_minimize: ^1.0.9
 ```
 ```bash
 flutter pub get
@@ -41,16 +41,21 @@ import 'package:liquid_tabbar_minimize/liquid_tabbar_minimize.dart';
 LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
   onTap: (index) => setState(() => _selectedIndex = index),
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-    BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-    BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+  items: [
+    LiquidTabItem(widget: Icon(Icons.home), sfSymbol: 'house.fill', label: 'Home'),
+    LiquidTabItem(widget: Icon(Icons.search), sfSymbol: 'magnifyingglass', label: 'Search'),
+    LiquidTabItem(widget: Icon(Icons.settings), sfSymbol: 'gearshape.fill', label: 'Settings'),
   ],
   showActionButton: true,
-  actionIcon: (const Icon(Icons.add), 'plus'),
+  actionButton: ActionButtonConfig(const Icon(Icons.add), 'plus'),
   onActionTap: () => debugPrint('Action tapped'),
   labelVisibility: LabelVisibility.always,
 );
+```
+
+### Using Asset Images for Action Button
+```dart
+actionButton: ActionButtonConfig.asset('assets/search.png'),
 ```
 
 ### Navigation observers (for native bar + instant hide)
@@ -87,24 +92,65 @@ NotificationListener<ScrollNotification>(
 );
 ```
 
+### Custom SF Symbols (iOS)
+You can use custom SF Symbols created in Apple's SF Symbols app alongside system symbols.
+
+**Step 1: Export from SF Symbols App**
+1. Open SF Symbols app and create/customize your symbol
+2. Select your symbol and go to **File → Export Symbol**
+3. Export as **SVG** format
+
+**Step 2: Add to Xcode Project**
+1. In Xcode, open your iOS project's `Assets.xcassets`
+2. Create a new folder with `.symbolset` extension (e.g., `myicon.symbolset`)
+3. Add your exported SVG file and a `Contents.json`:
+
+```
+ios/Runner/Assets.xcassets/
+└── myicon.symbolset/
+    ├── Contents.json
+    └── myicon.svg
+```
+
+**Contents.json:**
+```json
+{
+  "info": { "author": "xcode", "version": 1 },
+  "symbols": [{ "filename": "myicon.svg", "idiom": "universal" }]
+}
+```
+
+**Step 3: Use in Flutter**
+```dart
+// For tab items
+LiquidTabItem(
+  widget: Icon(Icons.star),
+  sfSymbol: 'myicon',  // Your custom symbol name
+  label: 'Custom',
+),
+
+// For action button
+actionButton: ActionButtonConfig(Icon(Icons.star), 'myicon'),
+```
+
+> **Note:** The plugin automatically tries system SF Symbol first, then falls back to your custom symbol from Assets.xcassets.
+
 ## Advanced Options
 ```dart
 LiquidBottomNavigationBar(
   currentIndex: _selectedIndex,
   onTap: (i) => setState(() => _selectedIndex = i),
-  items: const [
-    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-    BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-    BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
-    BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+  items: [
+    LiquidTabItem(widget: Icon(Icons.home), sfSymbol: 'house.fill', label: 'Home'),
+    LiquidTabItem(widget: Icon(Icons.explore), sfSymbol: 'globe', label: 'Explore'),
+    LiquidTabItem(widget: Icon(Icons.star), sfSymbol: 'star.fill', label: 'Favorites'),
+    LiquidTabItem(widget: Icon(Icons.settings), sfSymbol: 'gearshape.fill', label: 'Settings'),
   ],
-  sfSymbolMapper: (icon) {
-    if (icon == Icons.home) return 'house.fill';
-    if (icon == Icons.explore) return 'globe';
-    return 'circle.fill';
-  },
   showActionButton: true,
-  actionIcon: (const Icon(Icons.search), 'magnifyingglass'),
+  // Option 1: Widget + SF Symbol
+  actionButton: ActionButtonConfig(const Icon(Icons.search), 'magnifyingglass'),
+  // Option 2: Asset for both Flutter and native iOS
+  // actionButton: ActionButtonConfig.asset('assets/custom_icon.png'),
   onActionTap: () => debugPrint('Action'),
   selectedItemColor: Colors.blue,
   unselectedItemColor: Colors.grey,
@@ -124,10 +170,10 @@ LiquidBottomNavigationBar(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `currentIndex` | `int` | required | Currently selected tab index |
-| `items` | `List<BottomNavigationBarItem>` | required | Tab items (2-5) |
+| `items` | `List<LiquidTabItem>` | required | Tab items with widget, sfSymbol, and label |
 | `onTap` | `ValueChanged<int>?` | null | Tab selection callback |
 | `showActionButton` | `bool` | false | Show optional action button |
-| `actionIcon` | `(Icon, String)?` | null | Action icon (Flutter icon, SF Symbol for native) |
+| `actionButton` | `ActionButtonConfig?` | null | Action button config - `ActionButtonConfig(Widget, sfSymbol)` or `.asset(path)` |
 | `onActionTap` | `VoidCallback?` | null | Action button callback |
 | `selectedItemColor` | `Color?` | theme primary | Color for selected tab/action |
 | `unselectedItemColor` | `Color?` | auto | Color for unselected tabs/action |

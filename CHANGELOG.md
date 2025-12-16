@@ -1,6 +1,9 @@
 # 1.0.9
 * **BREAKING**: `LiquidTabItem` replaces `BottomNavigationBarItem` - each item now has `widget`, `sfSymbol`, and `label`
 * **BREAKING**: `sfSymbolMapper` parameter removed - SF Symbol is now part of `LiquidTabItem`
+* **Selected Icon Support**: Added `selectedWidget` and `selectedSfSymbol` to `LiquidTabItem`
+  * Use different icons for selected/unselected states (e.g., outlined vs filled)
+  * Works on both custom bar and native iOS 26+ bar
 * **Custom SF Symbols Support**: Added support for custom SF Symbols created in SF Symbols app
   * Both tab items and action button now support custom SF Symbols from Assets.xcassets
   * If system SF Symbol not found, automatically loads custom symbol from app bundle

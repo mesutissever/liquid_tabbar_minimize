@@ -139,7 +139,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }) : assert(items.length >= 2 && items.length <= 5),
        assert(itemCounts == null || itemCounts.length == items.length);
 
-  static final GlobalKey barKey = GlobalKey();
+  static _CustomLiquidBarState? _customState;
   static _LiquidBottomNavigationBarState? _nativeState;
 
   /// Unique instance ID to avoid platform view collisions on hot restart
@@ -150,12 +150,13 @@ class LiquidBottomNavigationBar extends StatefulWidget {
   }
 
   static void handleScroll(double offset, double delta) {
-    final state = barKey.currentState;
-    if (state is _CustomLiquidBarState) {
-      state.handleScroll(offset, delta);
+    // Try custom bar state first
+    if (_customState != null) {
+      _customState!.handleScroll(offset, delta);
       return;
     }
 
+    // Fall back to native state
     if (_nativeState == null) return;
     _nativeState?._sendScrollToNative(offset, delta);
   }
@@ -335,7 +336,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
 
     if (widget.forceCustomBar || !_useNative || !Platform.isIOS) {
       return _CustomLiquidBar(
-        key: LiquidBottomNavigationBar.barKey,
         currentIndex: widget.currentIndex,
         onTap: widget.onTap,
         items: widget.items,
@@ -445,7 +445,6 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
     }
 
     return _CustomLiquidBar(
-      key: LiquidBottomNavigationBar.barKey,
       currentIndex: widget.currentIndex,
       onTap: widget.onTap,
       items: widget.items,
@@ -529,7 +528,6 @@ class _CustomLiquidBar extends StatefulWidget {
   final bool isRtl;
 
   const _CustomLiquidBar({
-    super.key,
     required this.currentIndex,
     required this.items,
     this.onTap,
@@ -565,6 +563,8 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   @override
   void initState() {
     super.initState();
+    // Register this state for handleScroll access
+    LiquidBottomNavigationBar._customState = this;
     _initNativeChannel();
     _initItemKeys();
     _loadAssetIfNeeded();
@@ -606,6 +606,15 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
     if (widget.items.length != oldWidget.items.length) {
       _initItemKeys();
     }
+  }
+
+  @override
+  void dispose() {
+    // Unregister this state
+    if (LiquidBottomNavigationBar._customState == this) {
+      LiquidBottomNavigationBar._customState = null;
+    }
+    super.dispose();
   }
 
   void _initNativeChannel() {

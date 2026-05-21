@@ -137,6 +137,15 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 self?.updateActionButtonImage(imageData: imageData.data, useTemplate: useTemplate)
                 result(nil)
                 
+            case "updateBadges":
+                guard let args = call.arguments as? [String: Any],
+                      let counts = args["counts"] as? [Int] else {
+                    result(FlutterMethodNotImplemented)
+                    return
+                }
+                self?.applyBadges(counts: counts)
+                result(nil)
+                
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -238,6 +247,18 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
         originalViewControllers = controllers
         if let items = tabController.tabBar.items {
             for item in items { originalTitlesByTag[item.tag] = item.title }
+        }
+
+        // Apply initial badge counts
+        let initialCounts = Self.parseItemCounts(args: args)
+        if !initialCounts.isEmpty {
+            for (index, count) in initialCounts.enumerated() {
+                if index < controllers.count {
+                    let tabItem = controllers[index].tabBarItem
+                    tabItem?.badgeValue = count > 0 ? "\(count)" : nil
+                    tabItem?.badgeColor = .systemRed
+                }
+            }
         }
 
         let tabBar = tabController.tabBar
@@ -786,6 +807,16 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
     // Mirror tab selections back to Flutter
     func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
         let tag = viewController.tabBarItem.tag
+
+        // If the user taps (or long-presses) the already-selected tab,
+        // skip the layout reset and Flutter event to avoid a spurious
+        // bubble animation (GitHub #27).
+        if !isMinimized,
+           let currentVC = tabBarController.selectedViewController,
+           currentVC.tabBarItem.tag == tag {
+            return false
+        }
+
         // Briefly ignore scroll-triggered minimize after selection
         ignoreScrollUntil = Date().addingTimeInterval(1.2)
         expandedLockUntil = Date().addingTimeInterval(1.2)
@@ -835,6 +866,24 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
                 item.title = label
                 // Also update the saved titles so they don't revert on minimize/expand
                 originalTitlesByTag[item.tag] = label
+            }
+        }
+    }
+    
+    // MARK: - Dynamic Badge Update
+    
+    private func applyBadges(counts: [Int]) {
+        guard let items = tabBarController?.tabBar.items else { return }
+        for (index, count) in counts.enumerated() {
+            if index < items.count {
+                items[index].badgeValue = count > 0 ? "\(count)" : nil
+                items[index].badgeColor = .systemRed
+            }
+        }
+        // Clear badges for items beyond the counts array
+        if counts.count < items.count {
+            for index in counts.count..<items.count {
+                items[index].badgeValue = nil
             }
         }
     }
@@ -1004,6 +1053,10 @@ class SwiftUITabBarPlatformView: NSObject, FlutterPlatformView, UITabBarControll
 
     static func parseIsRtl(args: Any?) -> Bool {
         (args as? [String: Any])?["isRtl"] as? Bool ?? false
+    }
+
+    static func parseItemCounts(args: Any?) -> [Int] {
+        (args as? [String: Any])?["itemCounts"] as? [Int] ?? []
     }
 
     static func defaultItems() -> [NativeTabItemData] {

@@ -65,6 +65,7 @@ class ActionButtonConfig {
 ///   sfSymbol: 'house',
 ///   selectedSfSymbol: 'house.fill',    // Optional - shown when selected on native iOS
 ///   label: 'Home',
+///   badgeCount: 3,                     // Optional - show notification badge
 /// )
 /// ```
 class LiquidTabItem {
@@ -83,12 +84,16 @@ class LiquidTabItem {
   /// Label text for the tab
   final String label;
 
+  /// Badge count to display on the tab icon. 0 or null hides the badge.
+  final int badgeCount;
+
   const LiquidTabItem({
     required this.widget,
     this.selectedWidget,
     required this.sfSymbol,
     this.selectedSfSymbol,
     required this.label,
+    this.badgeCount = 0,
   });
 }
 
@@ -99,7 +104,6 @@ class LiquidBottomNavigationBar extends StatefulWidget {
 
   /// Tab items - use LiquidTabItem for each tab
   final List<LiquidTabItem> items;
-  final List<int>? itemCounts;
   final bool showActionButton;
 
   /// Action button configuration - use ActionButtonConfig(Widget, sfSymbol) or ActionButtonConfig.asset()
@@ -129,7 +133,6 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     super.key,
     required this.currentIndex,
     required this.items,
-    this.itemCounts,
     this.onTap,
     this.showActionButton = false,
     this.actionButton,
@@ -146,8 +149,7 @@ class LiquidBottomNavigationBar extends StatefulWidget {
     this.enableMinimize = true,
     this.collapseStartOffset = 20.0,
     this.animationDuration = const Duration(milliseconds: 250),
-  }) : assert(items.length >= 2 && items.length <= 5),
-       assert(itemCounts == null || itemCounts.length == items.length);
+  }) : assert(items.length >= 2 && items.length <= 5);
 
   static _CustomLiquidBarState? _customState;
   static _LiquidBottomNavigationBarState? _nativeState;
@@ -281,10 +283,29 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
               // Silently ignore - native view may have been recreated
             });
       }
+
+      // Update native badge counts when badge values change
+      final oldBadges = oldWidget.items.map((e) => e.badgeCount).toList();
+      final newBadges = widget.items.map((e) => e.badgeCount).toList();
+      if (!_intListEquals(oldBadges, newBadges)) {
+        _scrollChannel!
+            .invokeMethod('updateBadges', {'counts': newBadges})
+            .catchError((error) {
+              // Silently ignore - native view may have been recreated
+            });
+      }
     }
   }
 
   bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool _intListEquals(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
     for (int i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
@@ -447,6 +468,7 @@ class _LiquidBottomNavigationBarState extends State<LiquidBottomNavigationBar>
                     'animationDurationMs':
                         widget.animationDuration.inMilliseconds,
                     'isRtl': isRtl,
+                    'itemCounts': widget.items.map((e) => e.badgeCount).toList(),
                   },
                   creationParamsCodec: const StandardMessageCodec(),
                 ),
@@ -677,6 +699,60 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
   }) {
     // Use selectedWidget when selected, fallback to widget
     return isSelected ? (item.selectedWidget ?? item.widget) : item.widget;
+  }
+
+  Widget _buildIconWithBadge({
+    required int index,
+    required bool isSelected,
+    required Color selectedColor,
+    required Color unselectedColor,
+    required LiquidTabItem item,
+  }) {
+    final count = item.badgeCount;
+    final color = isSelected ? selectedColor : unselectedColor;
+
+    return AnimatedScale(
+      scale: isSelected ? 1.1 : 1.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconTheme(
+            data: IconThemeData(size: 22, color: color),
+            child: _buildTabItemWidget(index, item, color, isSelected: isSelected),
+          ),
+          if (count > 0)
+            Positioned(
+              right: -8,
+              top: -4,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: count > 9 ? 4 : 0,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Center(
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   void handleScroll(double offset, double delta) {
@@ -983,26 +1059,12 @@ class _CustomLiquidBarState extends State<_CustomLiquidBar> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              AnimatedScale(
-                                scale: isSelected ? 1.1 : 1.0,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOutCubic,
-                                child: IconTheme(
-                                  data: IconThemeData(
-                                    size: 22,
-                                    color: isSelected
-                                        ? selectedColor
-                                        : unselectedColor,
-                                  ),
-                                  child: _buildTabItemWidget(
-                                    index,
-                                    item,
-                                    isSelected
-                                        ? selectedColor
-                                        : unselectedColor,
-                                    isSelected: isSelected,
-                                  ),
-                                ),
+                              _buildIconWithBadge(
+                                index: index,
+                                isSelected: isSelected,
+                                selectedColor: selectedColor,
+                                unselectedColor: unselectedColor,
+                                item: item,
                               ),
                               if (showLabel) ...[
                                 const SizedBox(height: 2),

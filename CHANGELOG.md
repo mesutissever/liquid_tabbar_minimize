@@ -1,3 +1,10 @@
+# 1.1.0
+* **Swift Package Manager Support**: Added `Package.swift` for Flutter 3.44+ SPM compatibility
+* Restructured iOS source files to follow SPM directory layout
+* CocoaPods support preserved for backward compatibility
+* **Badge Support**: Added `badgeCount` to `LiquidTabItem` — works on both custom bar and native iOS 26+ bar
+* **Bug Fix**: Fixed iOS 26 long-press on selected tab triggering spurious bubble animation (GitHub #27)
+
 # 1.0.9
 * **BREAKING**: `LiquidTabItem` replaces `BottomNavigationBarItem` - each item now has `widget`, `sfSymbol`, and `label`
 * **BREAKING**: `sfSymbolMapper` parameter removed - SF Symbol is now part of `LiquidTabItem`

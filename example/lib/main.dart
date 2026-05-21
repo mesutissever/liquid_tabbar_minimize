@@ -49,6 +49,9 @@ class _HomePageState extends State<HomePage> {
   // Language toggle for testing locale label updates
   bool _isEnglish = true;
 
+  // Badge toggle for testing
+  bool _showBadges = true;
+
   // Dynamic labels based on language
   List<String> get _labels => _isEnglish
       ? ['Home', 'Explore', 'Favorites', 'Settings']
@@ -123,6 +126,16 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Home'),
         backgroundColor: Colors.blue,
         actions: [
+          // Badge toggle button for testing
+          IconButton(
+            onPressed: () {
+              setState(() => _showBadges = !_showBadges);
+            },
+            icon: Icon(
+              _showBadges ? Icons.notifications_active : Icons.notifications_off,
+              color: Colors.white,
+            ),
+          ),
           // Language toggle button for testing
           TextButton.icon(
             onPressed: () {
@@ -473,6 +486,7 @@ class _HomePageState extends State<HomePage> {
             sfSymbol: 'house',
             selectedSfSymbol: 'house.fill',
             label: _labels[0],
+            badgeCount: _showBadges ? 3 : 0,
           ),
           LiquidTabItem(
             widget: const Icon(Icons.public),
@@ -485,6 +499,7 @@ class _HomePageState extends State<HomePage> {
             sfSymbol: 'star',
             selectedSfSymbol: 'star.fill',
             label: _labels[2],
+            badgeCount: _showBadges ? 12 : 0,
           ),
           LiquidTabItem(
             widget: const Icon(Icons.settings_outlined),

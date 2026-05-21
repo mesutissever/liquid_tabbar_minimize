@@ -2,7 +2,7 @@
 
 A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, and a frosted-glass custom bar for everything else (iOS <26 & Android).
 
-![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue) ![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.0.0-blue)
+![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-blue) ![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.0.0-blue) ![SPM](https://img.shields.io/badge/Swift%20Package%20Manager-compatible-brightgreen)
 
 ## Demos
 - Custom bar (iOS <26 / Android)
@@ -27,7 +27,7 @@ A polished Flutter bottom bar with scroll-to-minimize, native iOS 26+ support, a
 
 ```yaml
 dependencies:
-  liquid_tabbar_minimize: ^1.0.9
+  liquid_tabbar_minimize: ^1.1.0
 ```
 ```bash
 flutter pub get
@@ -73,6 +73,18 @@ LiquidBottomNavigationBar(
 ```dart
 actionButton: ActionButtonConfig.asset('assets/search.png'),
 ```
+
+### Badge counts
+Show notification badges on tab items. Set `badgeCount` on any `LiquidTabItem` — `0` hides the badge:
+```dart
+LiquidTabItem(
+  widget: Icon(Icons.chat_outlined),
+  sfSymbol: 'bubble.left',
+  label: 'Messages',
+  badgeCount: 5, // shows red badge with "5"
+),
+```
+Badges work on both the custom glassmorphism bar and the native iOS 26+ bar. Updates are reactive — just change the count and the badge updates automatically.
 
 ### Navigation observers (for native bar + instant hide)
 Add the provided `LiquidRouteObserver` to your app so the native tab bar hides immediately when a modal/page is pushed:
@@ -216,6 +228,8 @@ Supported in both custom and native bars.
 ## Compatibility
 - iOS 14+ (native minimize auto on 26+)
 - Android (Flutter-rendered custom bar, declared as Dart-only plugin)
+- **Swift Package Manager** supported (Flutter 3.44+)
+- **CocoaPods** supported (backward compatible)
 
 ## Example App
 See [`example/`](example/) for a runnable demo with multiple screens and scroll wiring.

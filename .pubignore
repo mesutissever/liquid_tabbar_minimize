@@ -1,0 +1,9 @@
+# Example build artifacts
+example/**/build/
+example/**/ios/Pods/
+example/**/ios/.symlinks/
+example/**/.dart_tool/
+example/**/android/.gradle/
+
+# Old classes directory (migrated to Sources/)
+ios/classes/
